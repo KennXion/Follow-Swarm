@@ -1,0 +1,22 @@
+FROM node:18-alpine
+
+# Set working directory
+WORKDIR /app
+
+# Install dependencies for node-gyp and development tools
+RUN apk add --no-cache python3 make g++ git
+
+# Copy package files
+COPY package*.json ./
+
+# Install all dependencies (including dev)
+RUN npm install
+
+# Install nodemon globally
+RUN npm install -g nodemon
+
+# Expose port
+EXPOSE 3001
+
+# Run with nodemon for hot reloading
+CMD ["nodemon", "src/index.js"]
