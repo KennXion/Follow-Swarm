@@ -16,11 +16,41 @@ async function runMigration() {
     const schemaPath = path.join(__dirname, '..', 'src', 'database', 'schema.sql');
     const schema = await fs.readFile(schemaPath, 'utf8');
     
-    // Split by semicolons but be careful with functions
-    const statements = schema
-      .split(/;\s*$|;\s*(?=CREATE|DROP|ALTER|INSERT|UPDATE|DELETE)/gm)
-      .filter(stmt => stmt.trim().length > 0)
-      .map(stmt => stmt.trim() + ';');
+    // Handle PostgreSQL functions specially
+    const statements = [];
+    let currentStatement = '';
+    let inFunction = false;
+    
+    const lines = schema.split('\n');
+    for (const line of lines) {
+      currentStatement += line + '\n';
+      
+      // Check if we're entering or in a function definition
+      if (line.includes('CREATE OR REPLACE FUNCTION') || line.includes('CREATE FUNCTION')) {
+        inFunction = true;
+      }
+      
+      // Check for end of statement
+      if (line.trim().endsWith(';')) {
+        if (inFunction) {
+          // For functions, check if this is the actual end
+          if (line.includes('$$') && line.includes('language')) {
+            statements.push(currentStatement.trim());
+            currentStatement = '';
+            inFunction = false;
+          }
+        } else if (!inFunction) {
+          // Regular statement
+          statements.push(currentStatement.trim());
+          currentStatement = '';
+        }
+      }
+    }
+    
+    // Add any remaining statement
+    if (currentStatement.trim()) {
+      statements.push(currentStatement.trim());
+    }
     
     // Execute each statement
     for (const statement of statements) {

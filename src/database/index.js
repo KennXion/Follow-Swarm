@@ -9,17 +9,38 @@ class Database {
 
   async connect() {
     try {
-      this.pool = new Pool({
-        connectionString: config.database.url,
+      // Use connection string if provided and valid, otherwise use individual params
+      const hasValidUrl = config.database.url && 
+                         !config.database.url.includes('your_') && 
+                         config.database.url.startsWith('postgresql://');
+      
+      // Log connection attempt (remove in production)
+      logger.info('Attempting database connection:', {
         host: config.database.host,
         port: config.database.port,
         database: config.database.database,
         user: config.database.user,
-        password: config.database.password,
+        hasPassword: !!config.database.password,
+        passwordType: typeof config.database.password
+      });
+      
+      const poolConfig = hasValidUrl ? {
+        connectionString: config.database.url,
         max: config.database.max,
         idleTimeoutMillis: config.database.idleTimeoutMillis,
         connectionTimeoutMillis: config.database.connectionTimeoutMillis
-      });
+      } : {
+        host: config.database.host,
+        port: config.database.port,
+        database: config.database.database,
+        user: config.database.user,
+        password: String(config.database.password || 'postgres'),
+        max: config.database.max,
+        idleTimeoutMillis: config.database.idleTimeoutMillis,
+        connectionTimeoutMillis: config.database.connectionTimeoutMillis
+      };
+      
+      this.pool = new Pool(poolConfig);
 
       // Test connection
       const client = await this.pool.connect();
