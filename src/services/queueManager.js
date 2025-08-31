@@ -1,14 +1,28 @@
+/**
+ * Queue Manager Service
+ * 
+ * Manages background job processing using Bull queues (Redis-backed).
+ * Handles follow operations, analytics, and notifications asynchronously.
+ * Provides job scheduling, retry logic, and progress tracking.
+ */
+
 const Bull = require('bull');
 const config = require('../../config');
 const logger = require('../utils/logger');
 const db = require('../database');
 const followEngine = require('./followEngine');
 
+/**
+ * QueueManager Class
+ * 
+ * Orchestrates multiple Bull queues for different job types.
+ * Implements workers, event handlers, and job lifecycle management.
+ */
 class QueueManager {
   constructor() {
-    this.queues = {};
-    this.workers = {};
-    this.isInitialized = false;
+    this.queues = {};         // Bull queue instances by name
+    this.workers = {};        // Worker processes by queue
+    this.isInitialized = false; // Initialization flag
   }
 
   /**

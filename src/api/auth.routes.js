@@ -1,3 +1,13 @@
+/**
+ * Authentication Routes
+ * 
+ * Handles all authentication-related endpoints including:
+ * - Spotify OAuth flow initiation and callback
+ * - Session management (login/logout)
+ * - Token refresh and revocation
+ * - Authentication status checks
+ */
+
 const express = require('express');
 const router = express.Router();
 const crypto = require('crypto');
@@ -105,51 +115,26 @@ router.get('/callback', async (req, res) => {
       ? 'https://spotifyswarm.com' 
       : 'http://localhost:5173';
     
-    const redirectUrl = `${frontendUrl}/auth/success?token=${apiToken}&userId=${user.id}`;
+    // Send HTML that redirects to frontend with token
+    // Using HTML redirect to avoid cross-origin issues between tunnel and localhost
+    const redirectUrl = `${frontendUrl}/auth/success?token=${encodeURIComponent(apiToken)}&userId=${encodeURIComponent(user.id)}`;
+    logger.info(`Redirecting to: ${redirectUrl}`);
     
     res.send(`
       <!DOCTYPE html>
       <html>
-      <head>
-        <title>Authentication Successful</title>
-        <style>
-          body {
-            font-family: system-ui, -apple-system, sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-            background: #191414;
-            color: white;
-          }
-          .container {
-            text-align: center;
-          }
-          .spinner {
-            border: 3px solid rgba(255, 255, 255, 0.1);
-            border-left-color: #1DB954;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 20px;
-          }
-          @keyframes spin {
-            to { transform: rotate(360deg); }
-          }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="spinner"></div>
-          <h2>Authentication Successful!</h2>
-          <p>Redirecting you to the dashboard...</p>
-        </div>
-        <script>
-          window.location.href = '${redirectUrl}';
-        </script>
-      </body>
+        <head>
+          <title>Redirecting...</title>
+          <meta http-equiv="refresh" content="0; url=${redirectUrl}">
+        </head>
+        <body>
+          <script>
+            console.log('Redirecting to:', '${redirectUrl}');
+            window.location.replace('${redirectUrl}');
+          </script>
+          <p>Redirecting to application...</p>
+          <p>If you are not redirected, <a href="${redirectUrl}">click here</a>.</p>
+        </body>
       </html>
     `);
   } catch (error) {
@@ -184,6 +169,7 @@ router.post('/refresh', isAuthenticated, async (req, res) => {
     });
   }
 });
+
 
 /**
  * POST /auth/logout
@@ -229,11 +215,32 @@ router.post('/logout', isAuthenticated, async (req, res) => {
 /**
  * GET /auth/status
  * Check authentication status
+ * Supports both JWT tokens (for API calls) and session cookies (for web)
  */
 router.get('/status', async (req, res) => {
   try {
-    if (req.session && req.session.userId) {
-      const user = await db.findOne('users', { id: req.session.userId });
+    let userId = null;
+    
+    // Check for JWT token first (used by frontend after OAuth login)
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7);
+      try {
+        const jwt = require('jsonwebtoken');
+        const decoded = jwt.verify(token, config.security.jwtSecret);
+        userId = decoded.userId;
+      } catch (error) {
+        logger.debug('Invalid JWT token');
+      }
+    }
+    
+    // Fall back to session if no JWT (legacy support)
+    if (!userId && req.session && req.session.userId) {
+      userId = req.session.userId;
+    }
+    
+    if (userId) {
+      const user = await db.findOne('users', { id: userId });
       
       if (user) {
         // Check if tokens are valid

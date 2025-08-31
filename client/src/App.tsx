@@ -7,10 +7,12 @@ import Follow from './pages/Follow';
 import History from './pages/History';
 import Settings from './pages/Settings';
 import Callback from './pages/Callback';
+import AuthSuccess from './pages/AuthSuccess';
 import { authAPI } from './services/api';
 
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  // Check localStorage for token initially
+  const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('token'));
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -18,11 +20,26 @@ function App() {
   }, []);
 
   const checkAuthStatus = async () => {
+    // If we have a token, verify it with the backend
+    const token = localStorage.getItem('token');
+    if (!token) {
+      setIsAuthenticated(false);
+      setLoading(false);
+      return;
+    }
+
     try {
       const response = await authAPI.getStatus();
       setIsAuthenticated(response.data.authenticated);
+      // If backend says not authenticated but we have a token, clear it
+      if (!response.data.authenticated) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('userId');
+      }
     } catch (error) {
       setIsAuthenticated(false);
+      localStorage.removeItem('token');
+      localStorage.removeItem('userId');
     } finally {
       setLoading(false);
     }
@@ -39,11 +56,14 @@ function App() {
   return (
     <Router>
       <Routes>
+        {/* Public routes */}
         <Route path="/login" element={
           isAuthenticated ? <Navigate to="/dashboard" /> : <Login />
         } />
         <Route path="/auth/callback" element={<Callback />} />
+        <Route path="/auth/success" element={<AuthSuccess />} />
         
+        {/* Protected routes */}
         <Route path="/" element={
           isAuthenticated ? <Layout /> : <Navigate to="/login" />
         }>

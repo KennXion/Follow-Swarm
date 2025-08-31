@@ -1,3 +1,11 @@
+/**
+ * Authentication Middleware
+ * 
+ * Provides authentication and authorization middleware for API endpoints.
+ * Handles JWT validation, session checks, and Spotify token verification.
+ * Implements role-based access control and rate limiting.
+ */
+
 const jwt = require('jsonwebtoken');
 const config = require('../../config');
 const db = require('../database');

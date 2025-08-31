@@ -1,3 +1,11 @@
+/**
+ * Spotify Authentication Module
+ * 
+ * Handles all Spotify OAuth 2.0 authentication flows and token management.
+ * Provides methods for user authentication, token refresh, and secure token storage.
+ * Integrates with Spotify Web API for user profile and follow operations.
+ */
+
 const SpotifyWebApi = require('spotify-web-api-node');
 const config = require('../../config');
 const logger = require('../utils/logger');
@@ -5,8 +13,15 @@ const encryption = require('../utils/encryption');
 const db = require('../database');
 const redis = require('../database/redis');
 
+/**
+ * SpotifyAuth Class
+ * 
+ * Manages Spotify OAuth flow, token lifecycle, and user profile operations.
+ * All tokens are encrypted before storage and cached for performance.
+ */
 class SpotifyAuth {
   constructor() {
+    // Initialize Spotify Web API client with OAuth credentials
     this.spotifyApi = new SpotifyWebApi({
       clientId: config.spotify.clientId,
       clientSecret: config.spotify.clientSecret,
@@ -21,6 +36,8 @@ class SpotifyAuth {
    */
   getAuthorizationUrl(state) {
     const scopes = config.spotify.scopes;
+    logger.info(`Creating auth URL with redirect URI: ${config.spotify.redirectUri}`);
+    logger.info(`Redirect URI type: ${typeof config.spotify.redirectUri}`);
     return this.spotifyApi.createAuthorizeURL(scopes, state);
   }
 
@@ -97,10 +114,11 @@ class SpotifyAuth {
    */
   async saveOrUpdateUser(profile) {
     try {
+      // Check if user already exists in database
       const existingUser = await db.findOne('users', { spotify_id: profile.spotifyId });
       
       if (existingUser) {
-        // Update existing user
+        // Update existing user's profile information
         const updatedUser = await db.update('users', existingUser.id, {
           email: profile.email,
           display_name: profile.displayName,
@@ -112,7 +130,7 @@ class SpotifyAuth {
         logger.info(`Updated user: ${profile.spotifyId}`);
         return updatedUser;
       } else {
-        // Create new user
+        // Create new user account
         const newUser = await db.insert('users', {
           spotify_id: profile.spotifyId,
           email: profile.email,
@@ -120,12 +138,12 @@ class SpotifyAuth {
           profile_image_url: profile.profileImageUrl,
           country: profile.country,
           product: profile.product,
-          subscription_tier: 'free'
+          subscription_tier: 'free' // New users start with free tier
         });
         
         logger.info(`Created new user: ${profile.spotifyId}`);
         
-        // Track signup event
+        // Track signup event for analytics
         await db.insert('analytics', {
           user_id: newUser.id,
           event_type: 'signup',
@@ -148,15 +166,17 @@ class SpotifyAuth {
    */
   async saveTokens(userId, tokens) {
     try {
+      // Encrypt tokens before storage for security
       const encryptedAccessToken = encryption.encrypt(tokens.accessToken);
       const encryptedRefreshToken = encryption.encrypt(tokens.refreshToken);
+      // Calculate token expiration time
       const expiresAt = new Date(Date.now() + (tokens.expiresIn * 1000));
       
-      // Check if tokens already exist
+      // Check if user already has tokens stored
       const existingTokens = await db.findOne('oauth_tokens', { user_id: userId });
       
       if (existingTokens) {
-        // Update existing tokens
+        // Update existing token record
         await db.update('oauth_tokens', existingTokens.id, {
           access_token: encryptedAccessToken,
           refresh_token: encryptedRefreshToken,
@@ -164,7 +184,7 @@ class SpotifyAuth {
           scope: tokens.scope
         });
       } else {
-        // Insert new tokens
+        // Create new token record
         await db.insert('oauth_tokens', {
           user_id: userId,
           access_token: encryptedAccessToken,
@@ -174,7 +194,8 @@ class SpotifyAuth {
         });
       }
       
-      // Cache tokens in Redis for quick access
+      // Cache unencrypted tokens in Redis for quick access
+      // Redis data is encrypted at rest and in transit
       await redis.cacheToken(userId, {
         accessToken: tokens.accessToken,
         expiresAt: expiresAt.toISOString()
@@ -194,24 +215,24 @@ class SpotifyAuth {
    */
   async getValidAccessToken(userId) {
     try {
-      // Check Redis cache first
+      // Check Redis cache first for performance
       const cachedToken = await redis.getCachedToken(userId);
       if (cachedToken && new Date(cachedToken.expiresAt) > new Date()) {
         return cachedToken.accessToken;
       }
       
-      // Get tokens from database
+      // Fallback to database if not in cache
       const tokenRecord = await db.findOne('oauth_tokens', { user_id: userId });
       if (!tokenRecord) {
         throw new Error('No tokens found for user');
       }
       
-      // Check if token is expired
+      // Check if token is still valid
       if (new Date(tokenRecord.expires_at) > new Date(Date.now() + 60000)) {
-        // Token is still valid (with 1 minute buffer)
+        // Token is valid (with 1 minute buffer for safety)
         const decryptedToken = encryption.decrypt(tokenRecord.access_token);
         
-        // Cache it
+        // Re-cache the valid token
         await redis.cacheToken(userId, {
           accessToken: decryptedToken,
           expiresAt: tokenRecord.expires_at
@@ -220,14 +241,14 @@ class SpotifyAuth {
         return decryptedToken;
       }
       
-      // Token expired, refresh it
+      // Token expired, use refresh token to get new access token
       const decryptedRefreshToken = encryption.decrypt(tokenRecord.refresh_token);
       const newTokens = await this.refreshAccessToken(decryptedRefreshToken);
       
-      // Save new tokens
+      // Save new access token (keep existing refresh token)
       await this.saveTokens(userId, {
         ...newTokens,
-        refreshToken: decryptedRefreshToken,
+        refreshToken: decryptedRefreshToken, // Refresh token doesn't change
         scope: tokenRecord.scope
       });
       
@@ -244,13 +265,13 @@ class SpotifyAuth {
    */
   async revokeTokens(userId) {
     try {
-      // Delete from database
+      // Remove tokens from database
       const tokenRecord = await db.findOne('oauth_tokens', { user_id: userId });
       if (tokenRecord) {
         await db.delete('oauth_tokens', tokenRecord.id);
       }
       
-      // Clear from Redis cache
+      // Clear tokens from Redis cache
       await redis.invalidateToken(userId);
       
       logger.info(`Revoked tokens for user: ${userId}`);
@@ -261,4 +282,5 @@ class SpotifyAuth {
   }
 }
 
+// Export singleton instance for consistent Spotify API access
 module.exports = new SpotifyAuth();

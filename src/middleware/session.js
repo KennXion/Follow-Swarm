@@ -1,3 +1,11 @@
+/**
+ * Session Middleware
+ * 
+ * Configures Redis-backed session management for the application.
+ * Provides secure, persistent sessions with automatic expiration.
+ * Handles session storage, retrieval, and lifecycle management.
+ */
+
 const session = require('express-session');
 const connectRedis = require('connect-redis');
 const { createClient } = require('redis');

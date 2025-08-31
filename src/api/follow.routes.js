@@ -1,3 +1,14 @@
+/**
+ * Follow Operations Routes
+ * 
+ * API endpoints for managing Spotify follow operations:
+ * - Rate limit checking
+ * - Single and batch follow operations
+ * - Follow scheduling and job management
+ * - History and statistics retrieval
+ * - Queue status monitoring
+ */
+
 const express = require('express');
 const router = express.Router();
 const { requireAuth, checkSubscription } = require('../middleware/auth');
