@@ -6,16 +6,65 @@ import { authAPI } from '../services/api';
 const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const [honeypot, setHoneypot] = useState(''); // Bot trap field
+  const [pageLoadTime] = useState(Date.now()); // Track page load time
+  const [interactions, setInteractions] = useState({
+    mouseEvents: 0,
+    keyboardEvents: 0,
+    focusEvents: 0
+  });
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       setMousePosition({ x: e.clientX, y: e.clientY });
+      // Track mouse events for bot detection
+      setInteractions(prev => ({ ...prev, mouseEvents: prev.mouseEvents + 1 }));
     };
+    
+    const handleKeyPress = () => {
+      // Track keyboard events for bot detection
+      setInteractions(prev => ({ ...prev, keyboardEvents: prev.keyboardEvents + 1 }));
+    };
+    
+    const handleFocus = () => {
+      // Track focus events for bot detection
+      setInteractions(prev => ({ ...prev, focusEvents: prev.focusEvents + 1 }));
+    };
+    
     window.addEventListener('mousemove', handleMouseMove);
-    return () => window.removeEventListener('mousemove', handleMouseMove);
-  }, []);
+    window.addEventListener('keypress', handleKeyPress);
+    window.addEventListener('focus', handleFocus);
+    
+    // Send page load time to backend
+    sessionStorage.setItem('pageLoadTime', pageLoadTime.toString());
+    
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('keypress', handleKeyPress);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [pageLoadTime]);
 
   const handleSpotifyLogin = () => {
+    // Check honeypot field (if filled, it's likely a bot)
+    if (honeypot) {
+      console.warn('Bot detected via honeypot');
+      return;
+    }
+    
+    // Check if interaction time is too fast (likely a bot)
+    const timeSinceLoad = Date.now() - pageLoadTime;
+    if (timeSinceLoad < 1000) {
+      console.warn('Signup too fast, possible bot');
+      return;
+    }
+    
+    // Store behavior metrics for backend validation
+    sessionStorage.setItem('signupMetrics', JSON.stringify({
+      timeSinceLoad,
+      ...interactions
+    }));
+    
     setIsLoading(true);
     authAPI.spotifyLogin();
   };
@@ -123,6 +172,28 @@ const Login = () => {
                 </p>
 
                 <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
+                  {/* Honeypot field - invisible to humans, visible to bots */}
+                  <input
+                    type="text"
+                    name="website"
+                    value={honeypot}
+                    onChange={(e) => setHoneypot(e.target.value)}
+                    tabIndex={-1}
+                    autoComplete="off"
+                    style={{
+                      position: 'absolute',
+                      left: '-9999px',
+                      width: '1px',
+                      height: '1px',
+                      margin: '-1px',
+                      padding: '0',
+                      border: '0',
+                      clip: 'rect(0 0 0 0)',
+                      overflow: 'hidden'
+                    }}
+                    aria-hidden="true"
+                  />
+                  
                   <button
                     onClick={handleSpotifyLogin}
                     disabled={isLoading}

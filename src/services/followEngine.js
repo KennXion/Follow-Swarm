@@ -228,7 +228,7 @@ class FollowEngine {
 
     // Find artists followed by other active premium users (swarm discovery)
     const query = `
-      SELECT DISTINCT u.spotify_id as artist_id, u.display_name, u.spotify_data
+      SELECT DISTINCT u.spotify_id as artist_id, u.display_name, u.spotify_data, u.total_follows
       FROM users u
       WHERE u.id != $1
         AND u.spotify_id NOT IN (${excludeIds.map((_, i) => `$${i + 2}`).join(',') || 'NULL'})

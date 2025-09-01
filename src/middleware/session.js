@@ -15,17 +15,32 @@ const logger = require('../utils/logger');
 // Initialize connect-redis
 const RedisStore = connectRedis(session);
 
-// Create Redis client for sessions
-const redisClient = createClient({
-  url: config.redis.url,
-  legacyMode: true
-});
+// Create Redis client for sessions (skip in test environment)
+let redisClient;
 
-redisClient.connect().catch(console.error);
+if (process.env.NODE_ENV !== 'test') {
+  redisClient = createClient({
+    url: config.redis.url,
+    legacyMode: true
+  });
 
-redisClient.on('error', (err) => {
-  logger.error('Redis session client error:', err);
-});
+  redisClient.connect().catch(console.error);
+
+  redisClient.on('error', (err) => {
+    logger.error('Redis session client error:', err);
+  });
+} else {
+  // Mock Redis client for tests
+  redisClient = {
+    connect: () => Promise.resolve(),
+    disconnect: () => Promise.resolve(),
+    quit: () => Promise.resolve(),
+    on: () => {},
+    get: (key, cb) => cb(null, null),
+    set: (key, val, cb) => cb(null, 'OK'),
+    del: (key, cb) => cb(null, 1)
+  };
+}
 
 // Session middleware configuration
 const sessionMiddleware = session({

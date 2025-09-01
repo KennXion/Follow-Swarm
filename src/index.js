@@ -215,8 +215,11 @@ const startServer = async () => {
   }
 };
 
-// Initialize and start the application
-startServer();
+// Only start the server if not in test environment
+if (process.env.NODE_ENV !== 'test') {
+  // Initialize and start the application
+  startServer();
+}
 
 // Export app for testing
 module.exports = app;

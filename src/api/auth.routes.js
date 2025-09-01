@@ -17,12 +17,27 @@ const { isAuthenticated, generateApiToken } = require('../middleware/auth');
 const db = require('../database');
 const redis = require('../database/redis');
 const logger = require('../utils/logger');
+const {
+  signupRateLimiter,
+  oauthRateLimiter,
+  trackSignupBehavior,
+  checkSuspiciousIP,
+  detectBot,
+  verifySpotifyAccount,
+  logSuspiciousActivity,
+  initializeBotProtection
+} = require('../middleware/botProtection');
+
+// Initialize bot protection tables on startup (skip in test environment)
+if (process.env.NODE_ENV !== 'test') {
+  initializeBotProtection();
+}
 
 /**
  * GET /auth/spotify
- * Initiate Spotify OAuth flow
+ * Initiate Spotify OAuth flow with bot protection
  */
-router.get('/spotify', async (req, res) => {
+router.get('/spotify', signupRateLimiter, trackSignupBehavior, checkSuspiciousIP, async (req, res) => {
   try {
     // Generate state for CSRF protection
     const state = crypto.randomBytes(16).toString('hex');
@@ -48,9 +63,9 @@ router.get('/spotify', async (req, res) => {
 
 /**
  * GET /auth/callback
- * Handle Spotify OAuth callback
+ * Handle Spotify OAuth callback with bot protection
  */
-router.get('/callback', async (req, res) => {
+router.get('/callback', oauthRateLimiter, detectBot, async (req, res) => {
   try {
     const { code, state, error: spotifyError } = req.query;
     
@@ -81,8 +96,51 @@ router.get('/callback', async (req, res) => {
     // Get user profile from Spotify
     const profile = await spotifyAuth.getUserProfile(tokens.accessToken);
     
-    // Save or update user in database
+    // Verify Spotify account legitimacy for bot detection
+    const spotifyRiskScore = await verifySpotifyAccount(profile);
+    
+    // Check if account is suspicious
+    if (spotifyRiskScore > 0.7) {
+      await logSuspiciousActivity(req, 'high_risk_spotify_account', {
+        spotifyId: profile.id,
+        riskScore: spotifyRiskScore,
+        followers: profile.followers?.total || 0,
+        email: profile.email
+      });
+      
+      logger.warn('High risk Spotify account detected', {
+        spotifyId: profile.id,
+        riskScore: spotifyRiskScore
+      });
+      
+      // For very high risk, block signup
+      if (spotifyRiskScore > 0.9) {
+        return res.status(403).json({
+          error: 'Account verification failed',
+          message: 'Your account does not meet our requirements. Please ensure your Spotify account is established and try again.'
+        });
+      }
+    }
+    
+    // Save or update user in database with risk score
     const user = await spotifyAuth.saveOrUpdateUser(profile);
+    
+    // Add bot detection data to user record
+    await db.query(
+      `UPDATE users 
+       SET risk_score = $1, 
+           signup_ip = $2, 
+           flagged_for_review = $3,
+           bot_detection_passed = $4
+       WHERE id = $5`,
+      [
+        spotifyRiskScore,
+        req.ip,
+        spotifyRiskScore > 0.5, // Flag for review if risk > 0.5
+        spotifyRiskScore < 0.7, // Passed if risk < 0.7
+        user.id
+      ]
+    );
     
     // Save tokens
     await spotifyAuth.saveTokens(user.id, tokens);
