@@ -71,6 +71,25 @@ jest.mock('../src/database/redis', () => {
   return mockRedis;
 });
 
+// Mock Database in test environment
+jest.mock('../src/database', () => ({
+  connect: jest.fn().mockResolvedValue(true),
+  disconnect: jest.fn().mockResolvedValue(true),
+  query: jest.fn().mockResolvedValue({ rows: [] }),
+  insert: jest.fn().mockImplementation((table, data) => 
+    Promise.resolve({ id: Math.floor(Math.random() * 1000), ...data })
+  ),
+  update: jest.fn().mockResolvedValue({ rows: [{ id: 1 }] }),
+  delete: jest.fn().mockResolvedValue({ rows: [{ id: 1 }] }),
+  get: jest.fn().mockResolvedValue(null),
+  pool: {
+    connect: jest.fn().mockResolvedValue({
+      query: jest.fn().mockResolvedValue({ rows: [] }),
+      release: jest.fn()
+    })
+  }
+}));
+
 // Mock Queue Manager in test environment
 jest.mock('../src/services/queueManager', () => ({
   initialize: jest.fn().mockResolvedValue(true),

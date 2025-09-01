@@ -1,5 +1,5 @@
 const request = require('supertest');
-const app = require('../../src/index');
+const app = require('../../src/app');
 const db = require('../../src/database');
 const { generateApiToken } = require('../../src/middleware/auth');
 
