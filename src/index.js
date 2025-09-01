@@ -8,6 +8,12 @@
 // Load environment variables from .env file
 require('dotenv').config();
 
+// Validate environment variables before proceeding
+const { validateOnStartup } = require('./utils/validateEnv');
+if (process.env.NODE_ENV !== 'test') {
+  validateOnStartup(true); // Exit on validation errors
+}
+
 // Application modules
 const app = require('./app');                           // Express app
 const config = require('../config');                    // Configuration
