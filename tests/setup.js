@@ -72,22 +72,75 @@ jest.mock('../src/database/redis', () => {
 });
 
 // Mock Database in test environment
+const mockUsers = new Map();
+let mockUserId = 1;
+
 jest.mock('../src/database', () => ({
   connect: jest.fn().mockResolvedValue(true),
   disconnect: jest.fn().mockResolvedValue(true),
-  query: jest.fn().mockResolvedValue({ rows: [] }),
-  insert: jest.fn().mockImplementation((table, data) => 
-    Promise.resolve({ id: Math.floor(Math.random() * 1000), ...data })
-  ),
+  query: jest.fn().mockImplementation((sql, params) => {
+    // Mock responses for common queries
+    if (sql.includes('SELECT * FROM users WHERE id')) {
+      const userId = params?.[0];
+      const user = mockUsers.get(userId);
+      return Promise.resolve({ rows: user ? [user] : [] });
+    }
+    if (sql.includes('COUNT')) {
+      return Promise.resolve({ rows: [{ count: '10', total: 10 }] });
+    }
+    if (sql.includes('SELECT * FROM follows')) {
+      return Promise.resolve({ rows: [] });
+    }
+    if (sql.includes('DELETE FROM users')) {
+      return Promise.resolve({ rows: [] });
+    }
+    return Promise.resolve({ rows: [] });
+  }),
+  insert: jest.fn().mockImplementation((table, data) => {
+    const id = mockUserId++;
+    const record = { id, ...data };
+    if (table === 'users') {
+      mockUsers.set(id, record);
+    }
+    return Promise.resolve(record);
+  }),
   update: jest.fn().mockResolvedValue({ rows: [{ id: 1 }] }),
-  delete: jest.fn().mockResolvedValue({ rows: [{ id: 1 }] }),
+  delete: jest.fn().mockImplementation((table, id) => {
+    if (table === 'users') {
+      mockUsers.delete(id);
+    }
+    return Promise.resolve({ rows: [{ id }] });
+  }),
   get: jest.fn().mockResolvedValue(null),
+  findOne: jest.fn().mockImplementation((table, criteria) => {
+    if (table === 'users' && criteria.id) {
+      return Promise.resolve(mockUsers.get(criteria.id) || null);
+    }
+    return Promise.resolve(null);
+  }),
+  findById: jest.fn().mockImplementation((table, id) => {
+    if (table === 'users') {
+      return Promise.resolve(mockUsers.get(id) || null);
+    }
+    return Promise.resolve(null);
+  }),
   pool: {
     connect: jest.fn().mockResolvedValue({
       query: jest.fn().mockResolvedValue({ rows: [] }),
       release: jest.fn()
     })
   }
+}));
+
+// Mock Bot Protection Middleware
+jest.mock('../src/middleware/botProtection', () => ({
+  signupRateLimiter: (req, res, next) => next(),
+  trackSignupBehavior: (req, res, next) => next(),
+  checkSuspiciousIP: (req, res, next) => next(),
+  detectBot: (req, res, next) => next(),
+  oauthRateLimiter: (req, res, next) => next(),
+  verifySpotifyAccount: jest.fn().mockResolvedValue(0.1),
+  analyzeSignupBehavior: jest.fn().mockReturnValue(0.1)
 }));
 
 // Mock Queue Manager in test environment

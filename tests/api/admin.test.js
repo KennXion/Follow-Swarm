@@ -13,13 +13,16 @@ describe('Admin API Endpoints', () => {
     try {
       await db.connect();
       
+      // Set admin emails for testing
+      process.env.ADMIN_EMAILS = 'admin@followswarm.com';
+      
       // Clean up test users
       await db.query('DELETE FROM users WHERE email LIKE $1', ['%@test.admin%']);
       
-      // Create admin user
+      // Create admin user with email that matches ADMIN_EMAILS
       adminUser = await db.insert('users', {
         spotify_id: `admin_test_${Date.now()}`,
-        email: `admin_${Date.now()}@test.admin`,
+        email: 'admin@followswarm.com',
         display_name: 'Admin User',
         role: 'admin',
         subscription_tier: 'premium'
