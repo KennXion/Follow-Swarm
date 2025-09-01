@@ -1,0 +1,481 @@
+/**
+ * Admin Routes
+ * 
+ * Protected endpoints for admin functionality including user management,
+ * system metrics, and administrative controls.
+ */
+
+const express = require('express');
+const router = express.Router();
+const { isAuthenticated } = require('../middleware/auth');
+const db = require('../database');
+
+/**
+ * Middleware to check admin privileges
+ */
+const requireAdmin = async (req, res, next) => {
+  try {
+    // Fetch user from database using authenticated user ID
+    const result = await db.query(
+      'SELECT * FROM users WHERE id = $1',
+      [req.user?.id || req.session?.userId]
+    );
+    
+    const user = result.rows[0];
+    
+    // Check if user has admin role by verifying email against admin list
+    // In production, this should check a role field in the database
+    const adminEmails = process.env.ADMIN_EMAILS?.split(',') || ['admin@followswarm.com'];
+    
+    if (!user || !adminEmails.includes(user.email)) {
+      return res.status(403).json({
+        error: 'Access denied',
+        message: 'Admin privileges required'
+      });
+    }
+    
+    req.user = user;
+    next();
+  } catch (error) {
+    console.error('Admin check error:', error);
+    res.status(500).json({
+      error: 'Authorization failed',
+      message: 'Failed to verify admin status'
+    });
+  }
+};
+
+/**
+ * GET /api/admin/stats
+ * Get system-wide statistics
+ */
+router.get('/stats', isAuthenticated, requireAdmin, async (req, res) => {
+  try {
+    // Get user statistics
+    const totalUsersResult = await db.query('SELECT COUNT(*) FROM users');
+    const totalUsers = parseInt(totalUsersResult.rows[0].count);
+    
+    const activeUsersResult = await db.query(
+      'SELECT COUNT(*) FROM users WHERE last_active >= $1',
+      [new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)] // Active in last 7 days
+    );
+    const activeUsers = parseInt(activeUsersResult.rows[0].count);
+    
+    // Get follow task statistics
+    const totalFollowsResult = await db.query('SELECT COUNT(*) FROM follow_tasks');
+    const totalFollows = parseInt(totalFollowsResult.rows[0].count);
+    
+    const completedFollowsResult = await db.query(
+      "SELECT COUNT(*) FROM follow_tasks WHERE status = 'completed'"
+    );
+    const completedFollows = parseInt(completedFollowsResult.rows[0].count);
+    
+    const failedFollowsResult = await db.query(
+      "SELECT COUNT(*) FROM follow_tasks WHERE status = 'failed'"
+    );
+    const failedFollows = parseInt(failedFollowsResult.rows[0].count);
+    
+    // Get today's stats
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const newUsersTodayResult = await db.query(
+      'SELECT COUNT(*) FROM users WHERE created_at >= $1',
+      [today]
+    );
+    const newUsersToday = parseInt(newUsersTodayResult.rows[0].count);
+    
+    const followsTodayResult = await db.query(
+      'SELECT COUNT(*) FROM follow_tasks WHERE created_at >= $1',
+      [today]
+    );
+    const followsToday = parseInt(followsTodayResult.rows[0].count);
+    
+    res.json({
+      success: true,
+      data: {
+        users: {
+          total: totalUsers,
+          active: activeUsers,
+          newToday: newUsersToday
+        },
+        follows: {
+          total: totalFollows,
+          completed: completedFollows,
+          failed: failedFollows,
+          today: followsToday,
+          successRate: totalFollows > 0 ? ((completedFollows / totalFollows) * 100).toFixed(2) : 0
+        },
+        system: {
+          uptime: process.uptime(),
+          memory: process.memoryUsage(),
+          nodeVersion: process.version
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Admin stats error:', error);
+    res.status(500).json({
+      error: 'Stats retrieval failed',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/admin/users
+ * Get all users with pagination and filtering
+ */
+router.get('/users', isAuthenticated, requireAdmin, async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 20,
+      search = '',
+      status = 'all',
+      plan = 'all',
+      sortBy = 'created_at',
+      sortOrder = 'DESC'
+    } = req.query;
+    
+    const offset = (page - 1) * limit;
+    
+    // Build where clause
+    let whereConditions = [];
+    let queryParams = [];
+    let paramCount = 0;
+    
+    if (search) {
+      paramCount++;
+      whereConditions.push(`(display_name ILIKE $${paramCount} OR email ILIKE $${paramCount})`);
+      queryParams.push(`%${search}%`);
+    }
+    
+    if (status !== 'all') {
+      paramCount++;
+      whereConditions.push(`status = $${paramCount}`);
+      queryParams.push(status);
+    }
+    
+    if (plan !== 'all') {
+      paramCount++;
+      whereConditions.push(`subscription_plan = $${paramCount}`);
+      queryParams.push(plan);
+    }
+    
+    const whereClause = whereConditions.length > 0 
+      ? `WHERE ${whereConditions.join(' AND ')}`
+      : '';
+    
+    // Get total count
+    const countResult = await db.query(
+      `SELECT COUNT(*) FROM users ${whereClause}`,
+      queryParams
+    );
+    const totalCount = parseInt(countResult.rows[0].count);
+    
+    // Get users with pagination
+    paramCount++;
+    queryParams.push(parseInt(limit));
+    paramCount++;
+    queryParams.push(parseInt(offset));
+    
+    const usersResult = await db.query(
+      `SELECT 
+        id, spotify_id, display_name, email, followers, 
+        subscription_plan, status, is_verified, created_at, last_active
+      FROM users 
+      ${whereClause}
+      ORDER BY ${sortBy} ${sortOrder}
+      LIMIT $${paramCount - 1} OFFSET $${paramCount}`,
+      queryParams
+    );
+    
+    res.json({
+      success: true,
+      data: {
+        users: usersResult.rows,
+        pagination: {
+          total: totalCount,
+          page: parseInt(page),
+          limit: parseInt(limit),
+          totalPages: Math.ceil(totalCount / limit)
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Admin users list error:', error);
+    res.status(500).json({
+      error: 'Failed to fetch users',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/admin/users/:id
+ * Get detailed user information
+ */
+router.get('/users/:id', isAuthenticated, requireAdmin, async (req, res) => {
+  try {
+    const userResult = await db.query(
+      `SELECT 
+        id, spotify_id, display_name, email, followers, 
+        subscription_plan, status, is_verified, created_at, last_active
+      FROM users WHERE id = $1`,
+      [req.params.id]
+    );
+    
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({
+        error: 'User not found',
+        message: 'The requested user does not exist'
+      });
+    }
+    
+    const user = userResult.rows[0];
+    
+    // Get user's follow statistics
+    const followStatsResult = await db.query(
+      `SELECT status, COUNT(*) as count
+      FROM follow_tasks 
+      WHERE user_id = $1
+      GROUP BY status`,
+      [user.id]
+    );
+    
+    res.json({
+      success: true,
+      data: {
+        user,
+        stats: {
+          follows: followStatsResult.rows
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Admin user detail error:', error);
+    res.status(500).json({
+      error: 'Failed to fetch user details',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * PUT /api/admin/users/:id
+ * Update user information
+ */
+router.put('/users/:id', isAuthenticated, requireAdmin, async (req, res) => {
+  try {
+    const { status, subscriptionPlan, isVerified } = req.body;
+    
+    // Check if user exists
+    const userResult = await db.query(
+      'SELECT * FROM users WHERE id = $1',
+      [req.params.id]
+    );
+    
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({
+        error: 'User not found',
+        message: 'The requested user does not exist'
+      });
+    }
+    
+    // Build update query
+    let updateFields = [];
+    let queryParams = [];
+    let paramCount = 0;
+    
+    if (status !== undefined) {
+      paramCount++;
+      updateFields.push(`status = $${paramCount}`);
+      queryParams.push(status);
+    }
+    
+    if (subscriptionPlan !== undefined) {
+      paramCount++;
+      updateFields.push(`subscription_plan = $${paramCount}`);
+      queryParams.push(subscriptionPlan);
+    }
+    
+    if (isVerified !== undefined) {
+      paramCount++;
+      updateFields.push(`is_verified = $${paramCount}`);
+      queryParams.push(isVerified);
+    }
+    
+    if (updateFields.length === 0) {
+      return res.status(400).json({
+        error: 'No updates provided',
+        message: 'Please provide at least one field to update'
+      });
+    }
+    
+    // Add user ID to params
+    paramCount++;
+    queryParams.push(req.params.id);
+    
+    // Execute update
+    const updateResult = await db.query(
+      `UPDATE users 
+      SET ${updateFields.join(', ')}, updated_at = CURRENT_TIMESTAMP
+      WHERE id = $${paramCount}
+      RETURNING id, display_name, email, status, subscription_plan, is_verified`,
+      queryParams
+    );
+    
+    res.json({
+      success: true,
+      message: 'User updated successfully',
+      data: {
+        user: updateResult.rows[0]
+      }
+    });
+  } catch (error) {
+    console.error('Admin user update error:', error);
+    res.status(500).json({
+      error: 'Failed to update user',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * DELETE /api/admin/users/:id
+ * Delete a user account
+ */
+router.delete('/users/:id', isAuthenticated, requireAdmin, async (req, res) => {
+  try {
+    const userResult = await db.query(
+      'SELECT * FROM users WHERE id = $1',
+      [req.params.id]
+    );
+    
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({
+        error: 'User not found',
+        message: 'The requested user does not exist'
+      });
+    }
+    
+    // Soft delete by setting status to 'deleted'
+    await db.query(
+      "UPDATE users SET status = 'deleted', updated_at = CURRENT_TIMESTAMP WHERE id = $1",
+      [req.params.id]
+    );
+    
+    res.json({
+      success: true,
+      message: 'User deleted successfully'
+    });
+  } catch (error) {
+    console.error('Admin user delete error:', error);
+    res.status(500).json({
+      error: 'Failed to delete user',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * POST /api/admin/users/:id/suspend
+ * Suspend a user account
+ */
+router.post('/users/:id/suspend', isAuthenticated, requireAdmin, async (req, res) => {
+  try {
+    const { reason, duration } = req.body;
+    
+    const userResult = await db.query(
+      'SELECT * FROM users WHERE id = $1',
+      [req.params.id]
+    );
+    
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({
+        error: 'User not found',
+        message: 'The requested user does not exist'
+      });
+    }
+    
+    let suspensionEnds = null;
+    if (duration) {
+      suspensionEnds = new Date(Date.now() + duration * 24 * 60 * 60 * 1000);
+    }
+    
+    await db.query(
+      `UPDATE users 
+      SET status = 'suspended', 
+          suspension_reason = $1, 
+          suspension_ends = $2,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = $3`,
+      [reason, suspensionEnds, req.params.id]
+    );
+    
+    res.json({
+      success: true,
+      message: 'User suspended successfully',
+      data: {
+        userId: req.params.id,
+        status: 'suspended',
+        suspensionEnds
+      }
+    });
+  } catch (error) {
+    console.error('Admin user suspend error:', error);
+    res.status(500).json({
+      error: 'Failed to suspend user',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/admin/activity
+ * Get recent system activity
+ */
+router.get('/activity', isAuthenticated, requireAdmin, async (req, res) => {
+  try {
+    const { limit = 50 } = req.query;
+    
+    // Get recent follow tasks
+    const recentFollowsResult = await db.query(
+      `SELECT 
+        ft.*, 
+        u.display_name, 
+        u.email
+      FROM follow_tasks ft
+      JOIN users u ON ft.user_id = u.id
+      ORDER BY ft.created_at DESC
+      LIMIT $1`,
+      [parseInt(limit)]
+    );
+    
+    // Get recent user registrations
+    const recentUsersResult = await db.query(
+      `SELECT id, display_name, email, created_at
+      FROM users
+      ORDER BY created_at DESC
+      LIMIT $1`,
+      [parseInt(limit)]
+    );
+    
+    res.json({
+      success: true,
+      data: {
+        recentFollows: recentFollowsResult.rows,
+        recentUsers: recentUsersResult.rows
+      }
+    });
+  } catch (error) {
+    console.error('Admin activity error:', error);
+    res.status(500).json({
+      error: 'Failed to fetch activity',
+      message: error.message
+    });
+  }
+});
+
+module.exports = router;

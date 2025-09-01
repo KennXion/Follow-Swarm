@@ -12,7 +12,8 @@ import {
   Moon,
   Music,
   TrendingUp,
-  Sparkles
+  Sparkles,
+  Shield
 } from 'lucide-react';
 import { authAPI } from '../services/api';
 import { useTheme } from '../contexts/ThemeContext';
@@ -154,6 +155,18 @@ const Layout = () => {
 
         {/* Bottom Actions */}
         <div className="p-4 border-t border-gray-200 dark:border-gray-800 space-y-2">
+          {/* Admin Panel Link (only show for admin users) */}
+          <Link
+            to="/admin"
+            className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-200"
+          >
+            <div className="flex items-center space-x-3">
+              <Shield className="h-5 w-5" />
+              <span className="font-medium">Admin Panel</span>
+            </div>
+            <Sparkles className="h-4 w-4" />
+          </Link>
+          
           <button
             onClick={toggleTheme}
             className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800/50 transition-all duration-200"

@@ -91,4 +91,15 @@ export const userAPI = {
   getDashboard: () => api.get('/api/user/dashboard'),
 };
 
+// Admin API
+export const adminAPI = {
+  getStats: () => api.get('/api/admin/stats'),
+  getUsers: (params?: any) => api.get('/api/admin/users', { params }),
+  getUser: (id: string) => api.get(`/api/admin/users/${id}`),
+  updateUser: (id: string, data: any) => api.put(`/api/admin/users/${id}`, data),
+  deleteUser: (id: string) => api.delete(`/api/admin/users/${id}`),
+  suspendUser: (id: string, data: any) => api.post(`/api/admin/users/${id}/suspend`, data),
+  getActivity: (limit?: number) => api.get('/api/admin/activity', { params: { limit } })
+};
+
 export default api;

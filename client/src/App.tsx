@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { useState, useEffect } from 'react';
 import { ThemeProvider } from './contexts/ThemeContext';
 import Layout from './components/Layout';
+import AdminLayout from './components/AdminLayout';
 import Dashboard from './pages/Dashboard';
 import Login from './pages/Login';
 import Follow from './pages/Follow';
@@ -13,6 +14,12 @@ import CommunityGrowth from './pages/marketing/CommunityGrowth';
 import SmartTargeting from './pages/marketing/SmartTargeting';
 import SafeCompliant from './pages/marketing/SafeCompliant';
 import LightningFast from './pages/marketing/LightningFast';
+import AdminDashboard from './pages/admin/AdminDashboard';
+import UserManagement from './pages/admin/UserManagement';
+import AdminAnalytics from './pages/admin/AdminAnalytics';
+import AdminSystem from './pages/admin/AdminSystem';
+import AdminSecurity from './pages/admin/AdminSecurity';
+import AdminLogs from './pages/admin/AdminLogs';
 import { authAPI } from './services/api';
 
 function App() {
@@ -84,6 +91,18 @@ function App() {
             <Route path="follow" element={<Follow />} />
             <Route path="history" element={<History />} />
             <Route path="settings" element={<Settings />} />
+          </Route>
+          
+          {/* Admin routes (protected) */}
+          <Route path="/admin" element={
+            isAuthenticated ? <AdminLayout /> : <Navigate to="/login" />
+          }>
+            <Route index element={<AdminDashboard />} />
+            <Route path="users" element={<UserManagement />} />
+            <Route path="analytics" element={<AdminAnalytics />} />
+            <Route path="system" element={<AdminSystem />} />
+            <Route path="security" element={<AdminSecurity />} />
+            <Route path="logs" element={<AdminLogs />} />
           </Route>
         </Routes>
       </Router>

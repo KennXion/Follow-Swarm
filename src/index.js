@@ -91,6 +91,7 @@ app.get('/health', (req, res) => {
 // Mount API route handlers
 app.use('/auth', authRoutes);          // Authentication routes
 app.use('/api/follows', followRoutes); // Follow operation routes
+app.use('/api/admin', require('./api/admin.routes')); // Admin routes
 
 /**
  * Root Endpoint
