@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
+import { ThemeProvider } from './contexts/ThemeContext';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
 import Login from './pages/Login';
@@ -8,6 +9,10 @@ import History from './pages/History';
 import Settings from './pages/Settings';
 import Callback from './pages/Callback';
 import AuthSuccess from './pages/AuthSuccess';
+import CommunityGrowth from './pages/marketing/CommunityGrowth';
+import SmartTargeting from './pages/marketing/SmartTargeting';
+import SafeCompliant from './pages/marketing/SafeCompliant';
+import LightningFast from './pages/marketing/LightningFast';
 import { authAPI } from './services/api';
 
 function App() {
@@ -54,27 +59,35 @@ function App() {
   }
 
   return (
-    <Router>
-      <Routes>
-        {/* Public routes */}
-        <Route path="/login" element={
-          isAuthenticated ? <Navigate to="/dashboard" /> : <Login />
-        } />
-        <Route path="/auth/callback" element={<Callback />} />
-        <Route path="/auth/success" element={<AuthSuccess />} />
-        
-        {/* Protected routes */}
-        <Route path="/" element={
-          isAuthenticated ? <Layout /> : <Navigate to="/login" />
-        }>
-          <Route index element={<Navigate to="/dashboard" />} />
-          <Route path="dashboard" element={<Dashboard />} />
-          <Route path="follow" element={<Follow />} />
-          <Route path="history" element={<History />} />
-          <Route path="settings" element={<Settings />} />
-        </Route>
-      </Routes>
-    </Router>
+    <ThemeProvider>
+      <Router>
+        <Routes>
+          {/* Public routes */}
+          <Route path="/login" element={
+            isAuthenticated ? <Navigate to="/dashboard" /> : <Login />
+          } />
+          <Route path="/auth/callback" element={<Callback />} />
+          <Route path="/auth/success" element={<AuthSuccess />} />
+          
+          {/* Marketing pages (public) */}
+          <Route path="/features/community-growth" element={<CommunityGrowth />} />
+          <Route path="/features/smart-targeting" element={<SmartTargeting />} />
+          <Route path="/features/safe-compliant" element={<SafeCompliant />} />
+          <Route path="/features/lightning-fast" element={<LightningFast />} />
+          
+          {/* Protected routes */}
+          <Route path="/" element={
+            isAuthenticated ? <Layout /> : <Navigate to="/login" />
+          }>
+            <Route index element={<Navigate to="/dashboard" />} />
+            <Route path="dashboard" element={<Dashboard />} />
+            <Route path="follow" element={<Follow />} />
+            <Route path="history" element={<History />} />
+            <Route path="settings" element={<Settings />} />
+          </Route>
+        </Routes>
+      </Router>
+    </ThemeProvider>
   );
 }
 
