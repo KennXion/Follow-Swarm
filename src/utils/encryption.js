@@ -46,10 +46,11 @@ class Encryption {
   /**
    * Encrypts text using AES-256-GCM
    * @param {string} text - Plain text to encrypt
-   * @returns {string|null} Base64-encoded encrypted data with IV and auth tag
+   * @returns {string|null} Base64-encoded encrypted data with IV and auth tag, or empty string for empty input
    */
   encrypt(text) {
-    if (!text) return null; // Handle empty input
+    if (text === null || text === undefined) return null; // Handle null/undefined
+    if (text === '') return ''; // Preserve empty strings without encryption
     
     try {
       // Generate random Initialization Vector for each encryption
@@ -84,11 +85,12 @@ class Encryption {
   /**
    * Decrypts text encrypted with AES-256-GCM
    * @param {string} encryptedText - Base64-encoded encrypted data
-   * @returns {string|null} Decrypted plain text
+   * @returns {string|null} Decrypted plain text, or empty string for empty input
    * @throws {Error} If decryption fails or auth tag verification fails
    */
   decrypt(encryptedText) {
-    if (!encryptedText) return null; // Handle empty input
+    if (encryptedText === null || encryptedText === undefined) return null; // Handle null/undefined
+    if (encryptedText === '') return ''; // Preserve empty strings without decryption
     
     try {
       // Decode from base64 to binary

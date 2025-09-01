@@ -22,9 +22,17 @@ global.console = {
 };
 
 // Mock Redis in test environment
-jest.mock('../src/database/redis', () => ({
-  client: {
-    set: jest.fn().mockResolvedValue('OK'),
+// Provides a complete mock implementation to avoid Redis dependency in tests
+// Handles both direct client methods and module-level convenience methods
+jest.mock('../src/database/redis', () => {
+  const mockClient = {
+    set: jest.fn((key, value, ...args) => {
+      // Handle EX option
+      if (args[0] === 'EX') {
+        return Promise.resolve('OK');
+      }
+      return Promise.resolve('OK');
+    }),
     get: jest.fn().mockResolvedValue(null),
     del: jest.fn().mockResolvedValue(1),
     expire: jest.fn().mockResolvedValue(1),
@@ -33,14 +41,35 @@ jest.mock('../src/database/redis', () => ({
     zadd: jest.fn().mockResolvedValue(1),
     zrem: jest.fn().mockResolvedValue(1),
     zrange: jest.fn().mockResolvedValue([]),
+    hset: jest.fn().mockResolvedValue(1),
+    hget: jest.fn().mockResolvedValue(null),
+    hgetall: jest.fn().mockResolvedValue({}),
+    lpush: jest.fn().mockResolvedValue(1),
+    lrange: jest.fn().mockResolvedValue([]),
     quit: jest.fn().mockResolvedValue('OK'),
-  },
-  connect: jest.fn(),
-  disconnect: jest.fn().mockResolvedValue(true),
-  cacheToken: jest.fn().mockResolvedValue('OK'),
-  getCachedToken: jest.fn().mockResolvedValue(null),
-  incrementRateLimit: jest.fn().mockResolvedValue(1),
-}));
+  };
+  
+  const mockRedis = {
+    client: mockClient,
+    publisher: {
+      publish: jest.fn().mockResolvedValue(1),
+    },
+    subscriber: {
+      subscribe: jest.fn().mockResolvedValue('OK'),
+      on: jest.fn(),
+    },
+    connect: jest.fn().mockReturnValue(mockClient),
+    disconnect: jest.fn().mockResolvedValue(true),
+    cacheToken: jest.fn().mockResolvedValue('OK'),
+    getCachedToken: jest.fn().mockResolvedValue(null),
+    incrementRateLimit: jest.fn().mockResolvedValue(1),
+    set: jest.fn((...args) => mockClient.set(...args)),
+    get: jest.fn((key) => mockClient.get(key)),
+    del: jest.fn((key) => mockClient.del(key)),
+  };
+  
+  return mockRedis;
+});
 
 // Mock Queue Manager in test environment
 jest.mock('../src/services/queueManager', () => ({

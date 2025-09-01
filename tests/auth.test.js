@@ -22,23 +22,14 @@ describe('Authentication Routes', () => {
 
   describe('GET /auth/spotify', () => {
     it('should redirect to Spotify OAuth', async () => {
-      try {
-        const response = await request(app)
-          .get('/auth/spotify')
-          .expect(302);
-        
-        expect(response.headers.location).toContain('accounts.spotify.com');
-        expect(response.headers.location).toContain('client_id');
-        expect(response.headers.location).toContain('redirect_uri');
-      } catch (error) {
-        // Skip if request times out or fails due to external dependency
-        if (error.code === 'ENOTFOUND' || error.message.includes('timeout')) {
-          console.log('Skipping Spotify OAuth test due to network issues');
-          return;
-        }
-        throw error;
-      }
-    }, 30000); // 30 second test timeout
+      const response = await request(app)
+        .get('/auth/spotify')
+        .expect(302);
+      
+      expect(response.headers.location).toContain('accounts.spotify.com');
+      expect(response.headers.location).toContain('client_id');
+      expect(response.headers.location).toContain('redirect_uri');
+    }, 5000); // 5 second test timeout
   });
 
   describe('GET /auth/status', () => {

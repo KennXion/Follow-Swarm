@@ -30,14 +30,22 @@ if (process.env.NODE_ENV !== 'test') {
     logger.error('Redis session client error:', err);
   });
 } else {
-  // Mock Redis client for tests
+  // Mock Redis client for test environment
+  // Provides a minimal Redis-like interface to allow tests to run without Redis
+  // The connect-redis module expects callbacks with variable argument signatures
   redisClient = {
     connect: () => Promise.resolve(),
     disconnect: () => Promise.resolve(),
     quit: () => Promise.resolve(),
     on: () => {},
     get: (key, cb) => cb(null, null),
-    set: (key, val, cb) => cb(null, 'OK'),
+    // Handle variable arguments from connect-redis (supports both 3 and 4+ arg signatures)
+    set: (key, val, ...args) => {
+      const cb = args[args.length - 1];
+      if (typeof cb === 'function') {
+        cb(null, 'OK');
+      }
+    },
     del: (key, cb) => cb(null, 1)
   };
 }

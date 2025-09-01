@@ -151,7 +151,7 @@ router.post('/batch', requireAuth, checkSubscription(['pro', 'premium']), async 
       data: {
         jobCount: jobs.length,
         jobIds: jobs.map(j => j.id),
-        estimatedCompletionTime: this.calculateEstimatedTime(jobs.length)
+        estimatedCompletionTime: calculateEstimatedTime(jobs.length)
       }
     });
   } catch (error) {
