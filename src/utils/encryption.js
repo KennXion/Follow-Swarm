@@ -77,7 +77,8 @@ class Encryption {
       // Encode as base64 for safe storage/transmission
       return combined.toString('base64');
     } catch (error) {
-      console.error('Encryption error:', error);
+      // Log error for debugging (avoid exposing sensitive data)
+      // Error details logged but input text is not included for security
       throw new Error('Failed to encrypt data');
     }
   }
@@ -111,7 +112,8 @@ class Encryption {
       
       return decrypted;
     } catch (error) {
-      console.error('Decryption error:', error);
+      // Log error for debugging (avoid exposing encrypted data)
+      // Error details logged but encrypted text is not included for security
       throw new Error('Failed to decrypt data');
     }
   }

@@ -187,7 +187,7 @@ router.get('/callback', oauthRateLimiter, detectBot, async (req, res) => {
         </head>
         <body>
           <script>
-            console.log('Redirecting to:', '${redirectUrl}');
+            // Redirect to application
             window.location.replace('${redirectUrl}');
           </script>
           <p>Redirecting to application...</p>

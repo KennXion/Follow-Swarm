@@ -113,7 +113,7 @@ class Database {
 
     // Monitor for clients held too long (potential connection leak)
     const timeout = setTimeout(() => {
-      console.error('A client has been checked out for more than 5 seconds!');
+      logger.error('A client has been checked out for more than 5 seconds!');
     }, 5000);
 
     // Wrap query method to reset timeout on activity

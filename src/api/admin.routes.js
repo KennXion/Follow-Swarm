@@ -9,6 +9,7 @@ const express = require('express');
 const router = express.Router();
 const { isAuthenticated } = require('../middleware/auth');
 const db = require('../database');
+const logger = require('../utils/logger');
 
 /**
  * Middleware to check admin privileges
@@ -37,7 +38,7 @@ const requireAdmin = async (req, res, next) => {
     req.user = user;
     next();
   } catch (error) {
-    console.error('Admin check error:', error);
+    logger.error('Admin check error:', error);
     res.status(500).json({
       error: 'Authorization failed',
       message: 'Failed to verify admin status'
@@ -114,7 +115,7 @@ router.get('/stats', isAuthenticated, requireAdmin, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Admin stats error:', error);
+    logger.error('Admin stats error:', error);
     res.status(500).json({
       error: 'Stats retrieval failed',
       message: error.message
@@ -204,7 +205,7 @@ router.get('/users', isAuthenticated, requireAdmin, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Admin users list error:', error);
+    logger.error('Admin users list error:', error);
     res.status(500).json({
       error: 'Failed to fetch users',
       message: error.message
@@ -254,7 +255,7 @@ router.get('/users/:id', isAuthenticated, requireAdmin, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Admin user detail error:', error);
+    logger.error('Admin user detail error:', error);
     res.status(500).json({
       error: 'Failed to fetch user details',
       message: error.message
@@ -334,7 +335,7 @@ router.put('/users/:id', isAuthenticated, requireAdmin, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Admin user update error:', error);
+    logger.error('Admin user update error:', error);
     res.status(500).json({
       error: 'Failed to update user',
       message: error.message
@@ -371,7 +372,7 @@ router.delete('/users/:id', isAuthenticated, requireAdmin, async (req, res) => {
       message: 'User deleted successfully'
     });
   } catch (error) {
-    console.error('Admin user delete error:', error);
+    logger.error('Admin user delete error:', error);
     res.status(500).json({
       error: 'Failed to delete user',
       message: error.message
@@ -424,7 +425,7 @@ router.post('/users/:id/suspend', isAuthenticated, requireAdmin, async (req, res
       }
     });
   } catch (error) {
-    console.error('Admin user suspend error:', error);
+    logger.error('Admin user suspend error:', error);
     res.status(500).json({
       error: 'Failed to suspend user',
       message: error.message
@@ -470,7 +471,7 @@ router.get('/activity', isAuthenticated, requireAdmin, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Admin activity error:', error);
+    logger.error('Admin activity error:', error);
     res.status(500).json({
       error: 'Failed to fetch activity',
       message: error.message

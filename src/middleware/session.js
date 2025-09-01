@@ -24,7 +24,7 @@ if (process.env.NODE_ENV !== 'test') {
     legacyMode: true
   });
 
-  redisClient.connect().catch(console.error);
+  redisClient.connect().catch(err => logger.error('Redis connection error:', err));
 
   redisClient.on('error', (err) => {
     logger.error('Redis session client error:', err);

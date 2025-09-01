@@ -1,8 +1,11 @@
 /**
  * Express Application Setup
  * 
- * Exports the configured Express app without starting the server.
- * This allows for better testing and separation of concerns.
+ * Configures and exports the Express application instance.
+ * Separates app configuration from server startup for better testing.
+ * 
+ * @module app
+ * @exports {Express} Configured Express application
  */
 
 const express = require('express');
