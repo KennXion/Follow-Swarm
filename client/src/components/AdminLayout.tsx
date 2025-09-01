@@ -9,9 +9,7 @@ import {
   Menu, 
   X, 
   LogOut,
-  Database,
   Activity,
-  AlertCircle,
   Crown,
   Lock,
   FileText,
@@ -30,7 +28,7 @@ const AdminLayout = () => {
   const navigate = useNavigate();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [user, setUser] = useState<any>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const [, setIsAdmin] = useState(false); // Admin status set in checkAdminStatus
 
   useEffect(() => {
     checkAdminStatus();

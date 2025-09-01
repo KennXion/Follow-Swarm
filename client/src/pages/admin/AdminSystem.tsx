@@ -21,9 +21,23 @@ import {
  * for maintenance mode, performance tuning, backup management, and real-time
  * system health monitoring with visual status indicators.
  */
+
+interface SystemSettings {
+  maintenanceMode: boolean;
+  debugMode: boolean;
+  rateLimiting: boolean;
+  caching: boolean;
+  autoBackup: boolean;
+  emailNotifications: boolean;
+  maxFollowsPerHour: number;
+  maxFollowsPerDay: number;
+  sessionTimeout: number;
+  maxUploadSize: number;
+}
+
 const AdminSystem = () => {
   // System configuration state with default values
-  const [settings, setSettings] = useState({
+  const [settings, setSettings] = useState<SystemSettings>({
     maintenanceMode: false,
     debugMode: false,
     rateLimiting: true,
@@ -38,11 +52,11 @@ const AdminSystem = () => {
 
   const [saving, setSaving] = useState(false);
 
-  const handleToggle = (key: string) => {
+  const handleToggle = (key: keyof SystemSettings) => {
     setSettings(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const handleChange = (key: string, value: any) => {
+  const handleChange = (key: keyof SystemSettings, value: any) => {
     setSettings(prev => ({ ...prev, [key]: value }));
   };
 

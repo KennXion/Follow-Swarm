@@ -11,6 +11,10 @@ vi.mock('../services/api', () => ({
   }
 }));
 
+// Type assertions for mocked functions
+const mockGetStats = api.followAPI.getStats as ReturnType<typeof vi.fn>;
+const mockGetRateLimits = api.followAPI.getRateLimits as ReturnType<typeof vi.fn>;
+
 describe('Dashboard Component', () => {
   const mockStats = {
     data: {
@@ -43,8 +47,8 @@ describe('Dashboard Component', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    api.followAPI.getStats.mockResolvedValue(mockStats);
-    api.followAPI.getRateLimits.mockResolvedValue(mockRateLimits);
+    mockGetStats.mockResolvedValue(mockStats);
+    mockGetRateLimits.mockResolvedValue(mockRateLimits);
   });
 
   it('should render loading state initially', () => {
@@ -58,8 +62,8 @@ describe('Dashboard Component', () => {
     render(<Dashboard />);
     
     await waitFor(() => {
-      expect(api.followAPI.getStats).toHaveBeenCalledWith('7d');
-      expect(api.followAPI.getRateLimits).toHaveBeenCalled();
+      expect(mockGetStats).toHaveBeenCalledWith('7d');
+      expect(mockGetRateLimits).toHaveBeenCalled();
     });
 
     await waitFor(() => {
@@ -103,7 +107,7 @@ describe('Dashboard Component', () => {
     fireEvent.change(select, { target: { value: '30d' } });
 
     await waitFor(() => {
-      expect(api.followAPI.getStats).toHaveBeenCalledWith('30d');
+      expect(mockGetStats).toHaveBeenCalledWith('30d');
     });
   });
 
@@ -120,7 +124,7 @@ describe('Dashboard Component', () => {
       }
     };
 
-    api.followAPI.getRateLimits.mockResolvedValue(premiumLimits);
+    mockGetRateLimits.mockResolvedValue(premiumLimits);
     
     render(<Dashboard />);
     
@@ -130,7 +134,7 @@ describe('Dashboard Component', () => {
   });
 
   it('should handle API errors gracefully', async () => {
-    api.followAPI.getStats.mockRejectedValue(new Error('API Error'));
+    mockGetStats.mockRejectedValue(new Error('API Error'));
     
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     
@@ -170,7 +174,7 @@ describe('Dashboard Component', () => {
       }
     };
 
-    api.followAPI.getStats.mockResolvedValue(zeroStats);
+    mockGetStats.mockResolvedValue(zeroStats);
     
     render(<Dashboard />);
     

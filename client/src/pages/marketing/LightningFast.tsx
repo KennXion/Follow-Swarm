@@ -361,7 +361,7 @@ const LightningFast = () => {
         </div>
       </section>
 
-      <style jsx>{`
+      <style>{`
         @keyframes slide {
           0% {
             transform: translateX(0);

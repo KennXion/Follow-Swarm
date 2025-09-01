@@ -1,14 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { 
   Users, 
   TrendingUp, 
   Activity,
   DollarSign,
   UserPlus,
-  UserMinus,
   AlertTriangle,
-  CheckCircle,
-  Clock,
   BarChart3,
   PieChart,
   Globe,

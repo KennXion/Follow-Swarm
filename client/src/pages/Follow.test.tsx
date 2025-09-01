@@ -14,6 +14,12 @@ vi.mock('../services/api', () => ({
   }
 }));
 
+// Type assertions for mocked functions
+const mockGetSuggestions = api.followAPI.getSuggestions as ReturnType<typeof vi.fn>;
+const mockGetRateLimits = api.followAPI.getRateLimits as ReturnType<typeof vi.fn>;
+const mockFollowSingle = api.followAPI.followSingle as ReturnType<typeof vi.fn>;
+const mockFollowBatch = api.followAPI.followBatch as ReturnType<typeof vi.fn>;
+
 // Mock alert
 global.alert = vi.fn();
 
@@ -43,10 +49,10 @@ describe('Follow Component', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    api.followAPI.getSuggestions.mockResolvedValue(mockSuggestions);
-    api.followAPI.getRateLimits.mockResolvedValue(mockRateLimits);
-    api.followAPI.followSingle.mockResolvedValue({ data: { success: true } });
-    api.followAPI.followBatch.mockResolvedValue({ data: { success: true } });
+    mockGetSuggestions.mockResolvedValue(mockSuggestions);
+    mockGetRateLimits.mockResolvedValue(mockRateLimits);
+    mockFollowSingle.mockResolvedValue({ data: { success: true } });
+    mockFollowBatch.mockResolvedValue({ data: { success: true } });
   });
 
   it('should render and fetch suggestions on mount', async () => {
@@ -56,8 +62,8 @@ describe('Follow Component', () => {
     expect(screen.getByText('Discover and follow new artists to grow your network')).toBeInTheDocument();
     
     await waitFor(() => {
-      expect(api.followAPI.getSuggestions).toHaveBeenCalledWith(20);
-      expect(api.followAPI.getRateLimits).toHaveBeenCalled();
+      expect(mockGetSuggestions).toHaveBeenCalledWith(20);
+      expect(mockGetRateLimits).toHaveBeenCalled();
     });
 
     await waitFor(() => {
@@ -139,7 +145,7 @@ describe('Follow Component', () => {
     await user.click(followButton);
     
     await waitFor(() => {
-      expect(api.followAPI.followSingle).toHaveBeenCalledWith('artist1');
+      expect(mockFollowSingle).toHaveBeenCalledWith('artist1');
       expect(global.alert).toHaveBeenCalledWith('Successfully queued 1 follow(s)');
     });
   });
@@ -158,7 +164,7 @@ describe('Follow Component', () => {
     await user.click(followButton);
     
     await waitFor(() => {
-      expect(api.followAPI.followBatch).toHaveBeenCalledWith(
+      expect(mockFollowBatch).toHaveBeenCalledWith(
         ['artist1', 'artist2', 'artist3']
       );
       expect(global.alert).toHaveBeenCalledWith('Successfully queued 3 follow(s)');
@@ -183,7 +189,7 @@ describe('Follow Component', () => {
       }
     };
     
-    api.followAPI.getRateLimits.mockResolvedValue(rateLimitedResponse);
+    mockGetRateLimits.mockResolvedValue(rateLimitedResponse);
     
     render(<Follow />);
     
@@ -201,14 +207,14 @@ describe('Follow Component', () => {
     render(<Follow />);
     
     await waitFor(() => {
-      expect(api.followAPI.getSuggestions).toHaveBeenCalledTimes(1);
+      expect(mockGetSuggestions).toHaveBeenCalledTimes(1);
     });
 
     const refreshButton = screen.getByRole('button', { name: /Refresh/i });
     await user.click(refreshButton);
     
     await waitFor(() => {
-      expect(api.followAPI.getSuggestions).toHaveBeenCalledTimes(2);
+      expect(mockGetSuggestions).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -220,7 +226,7 @@ describe('Follow Component', () => {
   });
 
   it('should show empty state when no suggestions', async () => {
-    api.followAPI.getSuggestions.mockResolvedValue({
+    mockGetSuggestions.mockResolvedValue({
       data: { data: [] }
     });
     
