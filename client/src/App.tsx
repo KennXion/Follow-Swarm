@@ -1,6 +1,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { ThemeProvider } from './contexts/ThemeContext';
+import ErrorBoundary from './components/ErrorBoundary';
 import Layout from './components/Layout';
 import AdminLayout from './components/AdminLayout';
 import Dashboard from './pages/Dashboard';
@@ -66,9 +67,10 @@ function App() {
   }
 
   return (
-    <ThemeProvider>
-      <Router>
-        <Routes>
+    <ErrorBoundary>
+      <ThemeProvider>
+        <Router>
+          <Routes>
           {/* Public routes */}
           <Route path="/login" element={
             isAuthenticated ? <Navigate to="/dashboard" /> : <Login />
@@ -107,6 +109,7 @@ function App() {
         </Routes>
       </Router>
     </ThemeProvider>
+    </ErrorBoundary>
   );
 }
 

@@ -2,8 +2,6 @@ import { useState, useEffect } from 'react';
 import { 
   Users, 
   Search, 
-  Filter, 
-  MoreVertical,
   Edit,
   Trash2,
   Shield,
@@ -11,9 +9,7 @@ import {
   CheckCircle,
   AlertCircle,
   Mail,
-  Calendar,
   Activity,
-  TrendingUp,
   UserPlus,
   Download,
   Eye,

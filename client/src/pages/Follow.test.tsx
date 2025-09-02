@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import Follow from './Follow';
 import * as api from '../services/api';
@@ -239,7 +239,7 @@ describe('Follow Component', () => {
   });
 
   it('should handle API errors', async () => {
-    api.followAPI.followSingle.mockRejectedValue({
+    (api.followAPI.followSingle as jest.Mock).mockRejectedValue({
       response: { data: { error: 'API Error' } }
     });
     

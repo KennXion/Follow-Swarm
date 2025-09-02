@@ -6,7 +6,6 @@ import {
   Activity,
   Calendar,
   Download,
-  Filter,
   RefreshCw
 } from 'lucide-react';
 import { Line, Bar, Doughnut } from 'react-chartjs-2';
@@ -22,7 +21,7 @@ import { adminAPI } from '../../services/api';
 const AdminAnalytics = () => {
   const [timeRange, setTimeRange] = useState('7d'); // Selected time range filter
   const [loading, setLoading] = useState(true); // Loading state for data fetching
-  const [analyticsData, setAnalyticsData] = useState<any>(null); // Analytics data from API
+  const [_analyticsData, setAnalyticsData] = useState<any>(null); // Analytics data from API (prefixed with _ to indicate intentionally unused)
 
   useEffect(() => {
     fetchAnalytics();

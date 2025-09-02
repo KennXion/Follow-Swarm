@@ -31,7 +31,7 @@ async function testAuthEndpoints() {
     console.log('1. Make sure you have Spotify credentials in your .env file:');
     console.log('   - SPOTIFY_CLIENT_ID');
     console.log('   - SPOTIFY_CLIENT_SECRET');
-    console.log('   - SPOTIFY_REDIRECT_URI=http://localhost:3001/auth/callback');
+    console.log('   - SPOTIFY_REDIRECT_URI=https://strong-deer-grow.loca.lt/auth/callback');
     console.log('');
     console.log('2. Open this URL in your browser:');
     console.log(`   🔗 ${BASE_URL}/auth/spotify`);

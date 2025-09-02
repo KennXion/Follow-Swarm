@@ -51,7 +51,7 @@ ChartJS.register(
  */
 const AdminDashboard = () => {
   const [timeRange, setTimeRange] = useState('7d');
-  const [loading, setLoading] = useState(false);
+  // const [loading, setLoading] = useState(false); // TODO: Implement loading states
 
   // Mock data - replace with actual API calls
   const stats = {

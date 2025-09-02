@@ -2,12 +2,10 @@ import { Link } from 'react-router-dom';
 import { 
   Users, 
   Globe, 
-  Heart, 
-  TrendingUp, 
+ 
   Star, 
-  Music, 
+ 
   ArrowRight,
-  CheckCircle,
   Sparkles,
   UserPlus,
   MessageCircle,

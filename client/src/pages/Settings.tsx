@@ -396,7 +396,7 @@ const Settings = () => {
     }
   };
 
-  const currentTab = tabs.find(tab => tab.id === activeTab);
+  // const currentTab = tabs.find(tab => tab.id === activeTab); // TODO: Use for tab-specific logic
 
   return (
     <div className="space-y-6">

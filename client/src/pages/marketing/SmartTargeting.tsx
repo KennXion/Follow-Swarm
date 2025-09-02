@@ -11,8 +11,6 @@ import {
   Filter,
   Search,
   Activity,
-  PieChart,
-  LineChart,
   Database
 } from 'lucide-react';
 

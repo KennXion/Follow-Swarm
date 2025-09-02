@@ -14,11 +14,27 @@ An automated Spotify artist follow exchange platform that helps artists grow the
 
 ## Tech Stack
 
-- **Backend**: Node.js, Express.js
-- **Database**: PostgreSQL, Redis
-- **Queue**: Bull
+### Backend
+- **Runtime**: Node.js 18+
+- **Framework**: Express.js
+- **Database**: PostgreSQL 14+, Redis 7+
+- **Queue System**: Bull (Redis-based)
 - **Authentication**: Spotify OAuth 2.0
-- **Security**: AES-256-GCM encryption, JWT
+- **Security**: AES-256-GCM encryption, JWT, Helmet.js
+- **SSL/TLS**: Production HTTPS with security headers
+
+### Frontend
+- **Framework**: React 18 + TypeScript
+- **Build Tool**: Vite
+- **Styling**: Tailwind CSS
+- **Testing**: Vitest
+- **Error Handling**: React Error Boundaries
+
+### Testing & Quality
+- **Backend Testing**: Jest
+- **Frontend Testing**: Vitest + React Testing Library
+- **Type Safety**: TypeScript strict mode
+- **Code Quality**: ESLint, Prettier
 
 ## Prerequisites
 

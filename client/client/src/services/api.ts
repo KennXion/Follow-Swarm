@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://polite-wings-type.loca.lt';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://strong-deer-grow.loca.lt';
 
 const api = axios.create({
   baseURL: API_BASE_URL,

@@ -1,6 +1,12 @@
 # Follow Swarm Project Status
 
-## Current Date: August 24, 2025
+## ⚠️ DEPRECATED - See TODO.md for Current Status
+
+**This document is outdated as of September 2025. Please refer to TODO.md for the most current project status and task tracking.**
+
+---
+
+## Current Date: August 24, 2025 (OUTDATED)
 
 ## Project Overview
 Follow Swarm is a Spotify growth platform that enables artists to gain followers through automated follow exchanges. The platform uses OAuth authentication, rate limiting, and queue management to provide a safe and compliant growth service.
@@ -65,7 +71,7 @@ Follow Swarm is a Spotify growth platform that enables artists to gain followers
 
 ### 🟡 Known Configuration Challenges
 - Spotify doesn't accept localhost for OAuth redirects
-- Using localtunnel (polite-wings-type.loca.lt) as public URL
+- Using localtunnel (strong-deer-grow.loca.lt) as public URL
 - Tunnel requires IP verification on each access
 - Cross-origin redirect restrictions between tunnel and localhost
 
@@ -82,10 +88,10 @@ Follow Swarm is a Spotify growth platform that enables artists to gain followers
 ### Credentials (in .env)
 - Spotify Client ID: dddc4f8cb72642c79ff5b06d90bc5ce7
 - Spotify Client Secret: [configured]
-- Redirect URI: https://polite-wings-type.loca.lt/auth/callback
+- Redirect URI: https://strong-deer-grow.loca.lt/auth/callback
 
 ### Current Tunnel
-- URL: https://polite-wings-type.loca.lt
+- URL: https://strong-deer-grow.loca.lt
 - Password: 73.103.231.11 (user's public IP)
 
 ## Next Steps to Complete

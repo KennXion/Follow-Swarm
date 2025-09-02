@@ -21,6 +21,7 @@ const logger = require('./utils/logger');               // Winston logger
 const db = require('./database');                       // PostgreSQL connection
 const redis = require('./database/redis');              // Redis connection
 const queueManager = require('./services/queueManager'); // Background job processing
+const { SSLConfig, httpsRedirect, getSSLConfig } = require('../ssl/ssl-config'); // SSL configuration
 
 // Note: All Express middleware and routes are configured in app.js
 // This file handles server startup, database connections, and graceful shutdown
@@ -57,7 +58,7 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));   // Ctrl+C
 
 /**
  * Server Startup Function
- * Initializes all connections and starts the HTTP server
+ * Initializes all connections and starts HTTP/HTTPS servers
  */
 const startServer = async () => {
   try {
@@ -73,27 +74,71 @@ const startServer = async () => {
     await queueManager.initialize();
     logger.info('Queue manager initialized');
     
-    // Start HTTP server
-    const port = config.server.port;
-    const server = app.listen(port, () => {
-      // Log startup information
-      logger.info(`Server running on port ${port}`);
-      logger.info(`Environment: ${config.server.env}`);
-      logger.info(`Health check: http://localhost:${port}/health`);
-      
-      // Development helper: Log OAuth URL
-      if (config.server.env === 'development') {
-        logger.info(`Spotify OAuth: http://localhost:${port}/auth/spotify`);
-      }
-    });
+    // Get SSL configuration for current environment
+    const sslConfig = getSSLConfig();
     
-    // Store server reference globally for shutdown handler
-    global.server = server;
+    if (sslConfig.enabled && config.server.env === 'production') {
+      // Production: Start HTTPS server with SSL
+      try {
+        const sslManager = new SSLConfig();
+        const httpsServer = sslManager.createHTTPSServer(app, sslConfig.port);
+        
+        httpsServer.listen(sslConfig.port, () => {
+          logger.info(`HTTPS server running on port ${sslConfig.port}`);
+          logger.info(`Environment: ${config.server.env}`);
+          logger.info(`Health check: https://localhost:${sslConfig.port}/health`);
+        });
+        
+        // Start HTTP server for redirects if needed
+        if (sslConfig.redirectHttp) {
+          const http = require('http');
+          const httpApp = require('express')();
+          httpApp.use(httpsRedirect);
+          
+          const httpServer = http.createServer(httpApp);
+          httpServer.listen(config.server.port, () => {
+            logger.info(`HTTP redirect server running on port ${config.server.port}`);
+          });
+        }
+        
+        global.server = httpsServer;
+        
+      } catch (sslError) {
+        logger.error('Failed to start HTTPS server:', sslError);
+        logger.info('Falling back to HTTP server...');
+        startHTTPServer();
+      }
+    } else {
+      // Development/Staging: Start HTTP server
+      startHTTPServer();
+    }
     
   } catch (error) {
     logger.error('Failed to start server:', error);
-    process.exit(1); // Exit with error code
+    process.exit(1);
   }
+};
+
+/**
+ * Start HTTP Server (fallback or development)
+ */
+const startHTTPServer = () => {
+  const port = config.server.port;
+  const server = app.listen(port, () => {
+    logger.info(`HTTP server running on port ${port}`);
+    logger.info(`Environment: ${config.server.env}`);
+    logger.info(`Health check: http://localhost:${port}/health`);
+    
+    if (config.server.env === 'development') {
+      logger.info(`Spotify OAuth: http://localhost:${port}/auth/spotify`);
+    }
+    
+    if (config.server.env === 'production') {
+      logger.warn('Running HTTP in production - SSL/TLS recommended');
+    }
+  });
+  
+  global.server = server;
 };
 
 // Only start the server if not in test environment
