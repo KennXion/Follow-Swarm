@@ -19,6 +19,7 @@ const path = require('path');
 const config = require('../config');
 const logger = require('./utils/logger');
 const sessionMiddleware = require('./middleware/session');
+const swagger = require('./swagger');
 
 // Create Express application instance
 const app = express();
@@ -107,13 +108,17 @@ app.get('/health', async (req, res) => {
  * Only mount routes if not in a pure mock test environment
  */
 if (process.env.NODE_ENV !== 'test' || !process.env.MOCK_ONLY) {
-  const authRoutes = require('./api/auth.routes');
-  const followRoutes = require('./api/follow.routes');
-  const adminRoutes = require('./api/admin.routes');
-  
-  app.use('/auth', authRoutes);
-  app.use('/api/follows', followRoutes);
-  app.use('/api/admin', adminRoutes);
+  /**
+   * API Documentation
+   */
+  app.use('/api-docs', swagger.serve, swagger.setup);
+
+  /**
+   * API Routes
+   */
+  app.use('/auth', require('./api/auth.routes'));
+  app.use('/api/follows', require('./api/follow.routes'));
+  app.use('/api/admin', require('./api/admin.routes'));
 }
 
 /**

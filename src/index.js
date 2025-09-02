@@ -15,13 +15,21 @@ if (process.env.NODE_ENV !== 'test') {
 }
 
 // Application modules
-const app = require('./app');                           // Express app
-const config = require('../config');                    // Configuration
-const logger = require('./utils/logger');               // Winston logger
-const db = require('./database');                       // PostgreSQL connection
-const redis = require('./database/redis');              // Redis connection
+const express = require('express');
+const session = require('express-session');
+const RedisStore = require('connect-redis')(session);
+const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const compression = require('compression');
+const config = require('../config');
+const db = require('./database');
+const redis = require('./database/redis');
+const logger = require('./utils/logger');
+const { SSLConfig } = require('../ssl/ssl-config');
+const app = require('./app');
 const queueManager = require('./services/queueManager'); // Background job processing
-const { SSLConfig, httpsRedirect, getSSLConfig } = require('../ssl/ssl-config'); // SSL configuration
+const { httpsRedirect, getSSLConfig } = require('../ssl/ssl-config'); // SSL configuration
 
 // Note: All Express middleware and routes are configured in app.js
 // This file handles server startup, database connections, and graceful shutdown

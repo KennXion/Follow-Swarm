@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { 
- 
   Loader, 
   CheckCircle, 
   RefreshCw,
@@ -12,6 +11,7 @@ import {
   TrendingUp
 } from 'lucide-react';
 import { followAPI } from '../services/api';
+import { ArtistCardSkeleton } from '../components/LoadingSkeleton';
 
 interface Artist {
   artistId: string;
@@ -180,8 +180,10 @@ const Follow = () => {
 
       {/* Artists Grid */}
       {loading ? (
-        <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-spotify-green"></div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+          {Array.from({ length: 8 }).map((_, index) => (
+            <ArtistCardSkeleton key={index} />
+          ))}
         </div>
       ) : suggestions.length === 0 ? (
         <div className="bg-white dark:bg-gray-800/50 backdrop-blur-sm rounded-2xl border border-gray-200 dark:border-gray-700/50 p-12 text-center">

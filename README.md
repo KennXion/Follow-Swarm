@@ -2,14 +2,19 @@
 
 An automated Spotify artist follow exchange platform that helps artists grow their follower base through a community-driven network effect.
 
-## Features
+## 🚀 Features
 
-- 🎵 Automated Spotify artist following with OAuth 2.0
-- ⚡ Smart rate limiting and throttling
-- 📊 Analytics and progress tracking
-- 💳 Subscription tiers (Free, Pro, Premium)
-- 🔐 Secure token encryption
-- 📈 Real-time progress monitoring
+- **Spotify OAuth Integration**: Secure authentication with Spotify accounts
+- **Artist Follow Exchange**: Automated follow-for-follow system
+- **Rate Limiting**: Respects Spotify's API limits with intelligent throttling
+- **Queue Management**: Background processing with Bull/Redis
+- **Admin Dashboard**: Real-time analytics and user management
+- **Subscription Tiers**: Free, Pro, and Premium plans with different limits
+- **Security**: AES-256-GCM encryption, CSRF protection, rate limiting
+- **API Documentation**: Interactive Swagger/OpenAPI documentation
+- **CI/CD Pipeline**: Automated testing, security scans, and deployment
+- **Loading Skeletons**: Enhanced UX with loading states
+- **Error Boundaries**: Robust React error handling with recovery options
 - 🚀 Scalable queue-based architecture
 
 ## Tech Stack
@@ -95,6 +100,20 @@ npm run dev
 ```
 
 The application will be available at `http://localhost:3001`
+
+## 📚 API Documentation
+
+The API is fully documented using OpenAPI/Swagger with interactive testing capabilities. Once the server is running, you can access the documentation at:
+
+```
+http://localhost:3001/api-docs
+```
+
+### Available Endpoints
+- **Authentication**: `/auth/*` - OAuth flow, session management
+- **Follow Operations**: `/api/follows/*` - Artist following, rate limits, suggestions
+- **Admin**: `/api/admin/*` - System stats, user management (admin only)
+- **Health**: `/health` - System health check
 
 ## Project Structure
 

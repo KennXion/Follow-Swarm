@@ -14,6 +14,7 @@ import {
   Server,
   Shield
 } from 'lucide-react';
+import { StatCardSkeleton } from '../../components/LoadingSkeleton';
 import { Line, Bar, Doughnut } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -51,7 +52,7 @@ ChartJS.register(
  */
 const AdminDashboard = () => {
   const [timeRange, setTimeRange] = useState('7d');
-  // const [loading, setLoading] = useState(false); // TODO: Implement loading states
+  const [loading] = useState(false); // Set to true to show skeleton loading state
 
   // Mock data - replace with actual API calls
   const stats = {
@@ -173,51 +174,59 @@ const AdminDashboard = () => {
       </div>
 
       {/* Key Metrics Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl border border-gray-700 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="p-3 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl">
-              <Users className="h-6 w-6 text-white" />
-            </div>
-            <span className="text-green-400 text-sm font-semibold">+12.5%</span>
-          </div>
-          <div className="text-2xl font-bold text-white">{stats.totalUsers.toLocaleString()}</div>
-          <div className="text-sm text-gray-400 mt-1">Total Users</div>
+      {loading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <StatCardSkeleton key={index} />
+          ))}
         </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl border border-gray-700 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-3 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl">
+                <Users className="h-6 w-6 text-white" />
+              </div>
+              <span className="text-green-400 text-sm font-semibold">+12.5%</span>
+            </div>
+            <div className="text-2xl font-bold text-white">{stats.totalUsers.toLocaleString()}</div>
+            <div className="text-sm text-gray-400 mt-1">Total Users</div>
+          </div>
 
-        <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl border border-gray-700 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="p-3 bg-gradient-to-br from-green-500 to-green-600 rounded-xl">
-              <Activity className="h-6 w-6 text-white" />
+          <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl border border-gray-700 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-3 bg-gradient-to-br from-green-500 to-green-600 rounded-xl">
+                <Activity className="h-6 w-6 text-white" />
+              </div>
+              <span className="text-green-400 text-sm font-semibold">+8.3%</span>
             </div>
-            <span className="text-green-400 text-sm font-semibold">+8.3%</span>
+            <div className="text-2xl font-bold text-white">{stats.activeUsers.toLocaleString()}</div>
+            <div className="text-sm text-gray-400 mt-1">Active Users</div>
           </div>
-          <div className="text-2xl font-bold text-white">{stats.activeUsers.toLocaleString()}</div>
-          <div className="text-sm text-gray-400 mt-1">Active Users</div>
-        </div>
 
-        <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl border border-gray-700 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="p-3 bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-xl">
-              <DollarSign className="h-6 w-6 text-white" />
+          <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl border border-gray-700 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-3 bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-xl">
+                <DollarSign className="h-6 w-6 text-white" />
+              </div>
+              <span className="text-green-400 text-sm font-semibold">+23.1%</span>
             </div>
-            <span className="text-green-400 text-sm font-semibold">+23.1%</span>
+            <div className="text-2xl font-bold text-white">${stats.revenue.toLocaleString()}</div>
+            <div className="text-sm text-gray-400 mt-1">Monthly Revenue</div>
           </div>
-          <div className="text-2xl font-bold text-white">${stats.revenue.toLocaleString()}</div>
-          <div className="text-sm text-gray-400 mt-1">Monthly Revenue</div>
-        </div>
 
-        <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl border border-gray-700 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="p-3 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl">
-              <TrendingUp className="h-6 w-6 text-white" />
+          <div className="bg-gray-800/50 backdrop-blur-sm rounded-2xl border border-gray-700 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-3 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl">
+                <TrendingUp className="h-6 w-6 text-white" />
+              </div>
+              <span className="text-green-400 text-sm font-semibold">{stats.successRate}%</span>
             </div>
-            <span className="text-green-400 text-sm font-semibold">{stats.successRate}%</span>
+            <div className="text-2xl font-bold text-white">{(stats.totalFollows / 1000000).toFixed(2)}M</div>
+            <div className="text-sm text-gray-400 mt-1">Total Follows</div>
           </div>
-          <div className="text-2xl font-bold text-white">{(stats.totalFollows / 1000000).toFixed(2)}M</div>
-          <div className="text-sm text-gray-400 mt-1">Total Follows</div>
         </div>
-      </div>
+      )}
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
