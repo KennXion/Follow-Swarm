@@ -11,19 +11,6 @@ process.env.SESSION_SECRET = 'test_session_secret';
 const { setupTestLifecycle } = require('./helpers/cleanup');
 setupTestLifecycle();
 
-// Clear mocks before each test suite, not individual tests
-beforeAll(() => {
-  // Clear mock data for fresh test suite
-  global.mockUsers.clear();
-  global.mockFollows.clear();
-  global.mockQueueJobs.clear();
-  global.mockAnalytics.clear();
-  global.mockUserId = 1;
-  global.mockFollowId = 1;
-  global.mockJobId = 1;
-  global.mockAnalyticsId = 1;
-});
-
 // Mock console to reduce noise in tests
 global.console = {
   ...console,
@@ -61,8 +48,6 @@ jest.mock('../src/database/redis', () => {
     lrange: jest.fn().mockResolvedValue([]),
     quit: jest.fn().mockResolvedValue('OK'),
     ping: jest.fn().mockResolvedValue('PONG'),
-    flushall: jest.fn().mockResolvedValue('OK'),
-    flushdb: jest.fn().mockResolvedValue('OK'),
   };
   
   const mockRedis = {
@@ -93,16 +78,13 @@ jest.mock('../src/database/redis', () => {
 global.mockUsers = global.mockUsers || new Map();
 global.mockFollows = global.mockFollows || new Map();
 global.mockQueueJobs = global.mockQueueJobs || new Map();
-global.mockAnalytics = global.mockAnalytics || new Map();
 global.mockUserId = global.mockUserId || 1;
 global.mockFollowId = global.mockFollowId || 1;
 global.mockJobId = global.mockJobId || 1;
-global.mockAnalyticsId = global.mockAnalyticsId || 1;
 
 const mockUsers = global.mockUsers;
 const mockFollows = global.mockFollows;
 const mockQueueJobs = global.mockQueueJobs;
-const mockAnalytics = global.mockAnalytics;
 
 jest.mock('../src/database', () => ({
   connect: jest.fn().mockResolvedValue(true),
@@ -159,8 +141,7 @@ jest.mock('../src/database', () => ({
       
       return Promise.resolve({ rows: [{ count: String(follows.length) }] });
     }
-    // Skip this generic handler for analytics queries
-    if (sql.includes('COUNT') && !sql.includes('analytics')) {
+    if (sql.includes('COUNT')) {
       return Promise.resolve({ rows: [{ count: '10', total: 10 }] });
     }
     if (sql.includes('FROM follows') || (sql.includes('SELECT') && sql.includes('follows'))) {
@@ -199,15 +180,8 @@ jest.mock('../src/database', () => ({
           if (planIndex !== -1) updatedUser.subscription_plan = params[planIndex];
         }
         if (sql.includes('status')) {
-          // Check for status literals in the SQL query itself
-          if (sql.includes("status = 'deleted'")) {
-            updatedUser.status = 'deleted';
-          } else if (sql.includes("status = 'suspended'")) {
-            updatedUser.status = 'suspended';
-          } else {
-            const statusIndex = params.findIndex(p => ['active', 'inactive', 'suspended', 'deleted'].includes(p));
-            if (statusIndex !== -1) updatedUser.status = params[statusIndex];
-          }
+          const statusIndex = params.findIndex(p => ['active', 'inactive', 'suspended', 'deleted'].includes(p));
+          if (statusIndex !== -1) updatedUser.status = params[statusIndex];
         }
         mockUsers.set(userId, updatedUser);
         return Promise.resolve({ rows: [updatedUser], rowCount: 1 });
@@ -224,26 +198,17 @@ jest.mock('../src/database', () => ({
     }
     // Handle admin stats queries
     if (sql.includes('COUNT(CASE WHEN subscription_tier')) {
-      // Admin stats query for user counts - check which table
-      if (sql.includes('FROM users')) {
-        // User statistics query
-        return Promise.resolve({ rows: [{
-          total_users: '10',
-          free_users: '5',
-          pro_users: '3',
-          premium_users: '2',
-          active_users: '8',
-          new_users_24h: '1',
-          new_users_7d: '3',
-          new_users_30d: '5'
-        }] });
-      } else {
-        // Revenue query (simplified calculation)
-        return Promise.resolve({ rows: [{
-          pro_revenue: '30',
-          premium_revenue: '40'
-        }] });
-      }
+      // Admin stats query for user counts
+      return Promise.resolve({ rows: [{
+        total_users: '10',
+        free_users: '5',
+        pro_users: '3',
+        premium_users: '2',
+        active_users: '8',
+        new_users_24h: '1',
+        new_users_7d: '3',
+        new_users_30d: '5'
+      }] });
     }
     if (sql.includes('COUNT(CASE WHEN status = \'completed\'')) {
       // Admin stats query for follows
@@ -256,185 +221,13 @@ jest.mock('../src/database', () => ({
         follows_7d: '50'
       }] });
     }
-    // Handle analytics queries
-    if (sql.includes('FROM analytics')) {
-      const userId = params?.[0]?.toString();
-      
-      // Get analytics events for user
-      let analyticsEvents = Array.from(mockAnalytics.values()).filter(
-        event => event.user_id === userId || event.user_id === userId?.toString()
-      );
-      
-      // Handle DATE_TRUNC for monthly recurring revenue FIRST (must be before other handlers)
-      if (sql.includes('DATE_TRUNC') && sql.includes('SUM((event_data')) {
-        // Filter for subscription renewal/upgrade events
-        const mrrEvents = analyticsEvents.filter(
-          e => (e.event_type === 'subscription_renewed' || e.event_type === 'subscription_upgrade')
-        );
-        
-        if (mrrEvents.length > 0) {
-          const mrr = mrrEvents.reduce((sum, event) => {
-            const amount = parseFloat(event.event_data?.amount || 0);
-            return sum + amount;
-          }, 0);
-          
-          return Promise.resolve({
-            rows: [{
-              month: new Date().toISOString(),
-              mrr: mrr.toFixed(2)
-            }]
-          });
-        }
-        
-        return Promise.resolve({ rows: [] });
-      }
-      
-      // Handle GROUP BY event_type
-      if (sql.includes('GROUP BY event_type')) {
-        const grouped = {};
-        analyticsEvents.forEach(event => {
-          if (!grouped[event.event_type]) {
-            grouped[event.event_type] = 0;
-          }
-          grouped[event.event_type]++;
-        });
-        
-        const rows = Object.entries(grouped).map(([event_type, count]) => ({
-          event_type,
-          count: String(count)
-        })).sort((a, b) => parseInt(b.count) - parseInt(a.count));
-        
-        return Promise.resolve({ rows });
-      }
-      
-      // Handle GROUP BY event_category
-      if (sql.includes('GROUP BY event_category')) {
-        const grouped = {};
-        analyticsEvents.forEach(event => {
-          if (!grouped[event.event_category]) {
-            grouped[event.event_category] = { total: 0, users: new Set() };
-          }
-          grouped[event.event_category].total++;
-          grouped[event.event_category].users.add(event.user_id);
-        });
-        
-        const rows = Object.entries(grouped).map(([event_category, data]) => ({
-          event_category,
-          total_events: String(data.total),
-          unique_users: String(data.users.size)
-        }));
-        
-        return Promise.resolve({ rows });
-      }
-      
-      // Handle COUNT with FILTER for engagement metrics
-      if (sql.includes('COUNT(*) FILTER')) {
-        const engagementEvents = analyticsEvents.filter(e => e.event_category === 'engagement').length;
-        const coreActions = analyticsEvents.filter(e => e.event_category === 'core_action').length;
-        
-        return Promise.resolve({
-          rows: [{
-            engagement_events: String(engagementEvents),
-            core_actions: String(coreActions),
-            total_events: String(analyticsEvents.length)
-          }]
-        });
-      }
-      
-      // Handle SUM for revenue analytics
-      if (sql.includes('SUM((event_data')) {
-        // Check if query is filtering by specific event_type
-        let revenueEvents;
-        if (sql.includes("event_type = 'payment_completed'")) {
-          revenueEvents = analyticsEvents.filter(e => e.event_type === 'payment_completed');
-        } else {
-          revenueEvents = analyticsEvents.filter(
-            e => e.event_type === 'payment_completed' || 
-                 e.event_type === 'subscription_renewed' ||
-                 e.event_type === 'subscription_upgrade'
-          );
-        }
-        
-        const totalRevenue = revenueEvents.reduce((sum, event) => {
-          const amount = event.event_data?.amount || 0;
-          return sum + parseFloat(amount);
-        }, 0);
-        
-        const paymentCount = revenueEvents.filter(e => e.event_type === 'payment_completed').length;
-        
-        return Promise.resolve({
-          rows: [{
-            total_revenue: totalRevenue.toFixed(2),
-            payment_count: String(paymentCount)
-          }]
-        });
-      }
-      
-      // Handle daily active users query
-      if (sql.includes('DATE(created_at)') && sql.includes('COUNT(DISTINCT user_id)')) {
-        const todayEvents = analyticsEvents.filter(event => {
-          if (event.event_type !== 'session_start') return false;
-          const eventDate = new Date(event.created_at);
-          const today = new Date();
-          return eventDate.toDateString() === today.toDateString();
-        });
-        
-        const uniqueUsers = new Set(todayEvents.map(e => e.user_id));
-        
-        if (uniqueUsers.size > 0) {
-          return Promise.resolve({
-            rows: [{
-              date: new Date().toISOString().split('T')[0],
-              active_users: String(uniqueUsers.size)
-            }]
-          });
-        }
-        
-        return Promise.resolve({ rows: [] });
-      }
-      
-      // Handle COUNT queries
-      if (sql.includes('COUNT(*)')) {
-        // Filter by date if provided
-        if (params?.[1]) {
-          const since = new Date(params[1]).getTime();
-          analyticsEvents = analyticsEvents.filter(event => {
-            const eventTime = new Date(event.created_at).getTime();
-            return eventTime > since;
-          });
-        }
-        
-        // Filter by event_type if specified
-        if (sql.includes("event_type = 'session_start'")) {
-          analyticsEvents = analyticsEvents.filter(e => e.event_type === 'session_start');
-        }
-        
-        return Promise.resolve({ 
-          rows: [{ 
-            recent_events: String(analyticsEvents.length),
-            count: String(analyticsEvents.length) 
-          }] 
-        });
-      }
-      
-      return Promise.resolve({ rows: analyticsEvents });
+    if (sql.includes('COUNT(CASE WHEN subscription_tier = \'pro\'')) {
+      // Revenue query
+      return Promise.resolve({ rows: [{
+        pro_revenue: '30',
+        premium_revenue: '40'
+      }] });
     }
-    
-    // Handle other analytics queries
-    if (sql.includes('DELETE FROM analytics')) {
-      const userId = params?.[0]?.toString();
-      const keysToDelete = [];
-      for (const [key, value] of mockAnalytics.entries()) {
-        // Compare both as strings and handle both id formats
-        if (value.user_id?.toString() === userId || value.user_id === userId) {
-          keysToDelete.push(key);
-        }
-      }
-      // Delete after iteration to avoid iterator issues
-      keysToDelete.forEach(key => mockAnalytics.delete(key));
-      return Promise.resolve({ rows: [], rowCount: keysToDelete.length });
-    }
-    
     // Handle analytics/admin queries
     if (sql.includes('DATE_TRUNC') || sql.includes('security_logs') || sql.includes('suspicious_ips')) {
       return Promise.resolve({ rows: [] });
@@ -456,15 +249,6 @@ jest.mock('../src/database', () => ({
       const id = global.mockJobId++;
       const record = { id: id.toString(), ...data };
       mockQueueJobs.set(id.toString(), record);
-      return Promise.resolve(record);
-    } else if (table === 'analytics') {
-      const id = global.mockAnalyticsId++;
-      const record = { 
-        id: id.toString(), 
-        ...data,
-        created_at: data.created_at || new Date()
-      };
-      mockAnalytics.set(id.toString(), record);
       return Promise.resolve(record);
     }
     const id = global.mockUserId++;
@@ -494,8 +278,7 @@ jest.mock('../src/database', () => ({
   get: jest.fn().mockResolvedValue(null),
   findOne: jest.fn().mockImplementation((table, criteria) => {
     if (table === 'users' && criteria.id) {
-      const userId = criteria.id?.toString();
-      return Promise.resolve(mockUsers.get(userId) || null);
+      return Promise.resolve(mockUsers.get(criteria.id?.toString()) || null);
     }
     if (table === 'queue_jobs') {
       // Find job by id and user_id

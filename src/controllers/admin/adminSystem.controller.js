@@ -50,11 +50,7 @@ async function getLogs(req, res) {
     
     res.json({
       success: true,
-      data: {
-        logs: logsResult.rows,
-        level,
-        count: logsResult.rows.length
-      }
+      data: logsResult.rows
     });
   } catch (error) {
     logger.error('Logs fetch error:', error);
@@ -87,11 +83,20 @@ async function getSuspiciousActivity(req, res) {
       LIMIT 100`
     );
     
+    // Get recent failed login attempts
+    const recentAttemptsResult = await db.query(
+      `SELECT * FROM security_logs
+      WHERE event_type IN ('failed_login', 'suspicious_activity')
+      ORDER BY created_at DESC
+      LIMIT 100`
+    );
+    
     res.json({
       success: true,
       data: {
         suspiciousIPs: suspiciousIPsResult.rows,
-        flaggedUsers: flaggedUsersResult.rows
+        flaggedUsers: flaggedUsersResult.rows,
+        recentAttempts: recentAttemptsResult.rows
       }
     });
   } catch (error) {

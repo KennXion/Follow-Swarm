@@ -4,6 +4,11 @@ describe('Analytics Service', () => {
   let testUser;
 
   beforeAll(async () => {
+    // Clear all analytics mocks before starting
+    if (global.mockAnalytics) {
+      global.mockAnalytics.clear();
+    }
+    
     await db.connect();
     
     // Create test user
@@ -13,6 +18,13 @@ describe('Analytics Service', () => {
       display_name: 'Analytics Test User'
     });
   }, 10000);
+
+  beforeEach(async () => {
+    // Clear analytics data for this user before each test
+    if (testUser) {
+      await db.query('DELETE FROM analytics WHERE user_id = $1', [testUser.id]);
+    }
+  });
 
   afterAll(async () => {
     // Clean up test data
@@ -70,7 +82,7 @@ describe('Analytics Service', () => {
   });
 
   describe('Analytics Queries', () => {
-    beforeEach(async () => {
+    it('should aggregate events by type', async () => {
       // Insert test analytics data
       await db.insert('analytics', {
         user_id: testUser.id,
@@ -85,9 +97,7 @@ describe('Analytics Service', () => {
         event_category: 'core_action',
         event_data: { artist_id: 'artist_1' }
       });
-    });
 
-    it('should aggregate events by type', async () => {
       const result = await db.query(`
         SELECT event_type, COUNT(*) as count
         FROM analytics 
@@ -109,6 +119,20 @@ describe('Analytics Service', () => {
     });
 
     it('should filter events by time period', async () => {
+      // Insert test analytics data
+      await db.insert('analytics', {
+        user_id: testUser.id,
+        event_type: 'page_view',
+        event_category: 'engagement',
+        event_data: { page: 'dashboard' }
+      });
+
+      await db.insert('analytics', {
+        user_id: testUser.id,
+        event_type: 'follow_completed',
+        event_category: 'core_action',
+        event_data: { artist_id: 'artist_1' }
+      });
       const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
       
       const result = await db.query(`
@@ -124,6 +148,20 @@ describe('Analytics Service', () => {
     });
 
     it('should aggregate events by category', async () => {
+      // Insert test analytics data
+      await db.insert('analytics', {
+        user_id: testUser.id,
+        event_type: 'page_view',
+        event_category: 'engagement',
+        event_data: { page: 'dashboard' }
+      });
+
+      await db.insert('analytics', {
+        user_id: testUser.id,
+        event_type: 'follow_completed',
+        event_category: 'core_action',
+        event_data: { artist_id: 'artist_1' }
+      });
       const result = await db.query(`
         SELECT 
           event_category,
@@ -214,6 +252,9 @@ describe('Analytics Service', () => {
 
   describe('Revenue Analytics', () => {
     it('should track subscription revenue', async () => {
+      // Ensure we start with no revenue events for this user
+      await db.query('DELETE FROM analytics WHERE user_id = $1', [testUser.id]);
+      
       await db.insert('analytics', {
         user_id: testUser.id,
         event_type: 'payment_completed',
@@ -238,12 +279,16 @@ describe('Analytics Service', () => {
       expect(result.rows.length).toBe(1);
       expect(result.rows[0]).toHaveProperty('total_revenue');
       expect(result.rows[0]).toHaveProperty('payment_count');
+      // Only payment_completed events should be counted here
       expect(parseFloat(result.rows[0].total_revenue) || 0).toBe(9.99);
       expect(parseInt(result.rows[0].payment_count) || 0).toBe(1);
     });
 
     it('should calculate monthly recurring revenue', async () => {
       const thisMonth = new Date().toISOString().slice(0, 7); // YYYY-MM format
+      
+      // Ensure we start with no revenue events for this user
+      await db.query('DELETE FROM analytics WHERE user_id = $1', [testUser.id]);
 
       await db.insert('analytics', {
         user_id: testUser.id,
@@ -266,9 +311,8 @@ describe('Analytics Service', () => {
         GROUP BY DATE_TRUNC('month', created_at)
       `, [testUser.id]);
 
-      if (result.rows.length > 0) {
-        expect(parseFloat(result.rows[0].mrr)).toBeGreaterThan(0);
-      }
+      expect(result.rows.length).toBeGreaterThan(0);
+      expect(parseFloat(result.rows[0].mrr)).toBeGreaterThan(0);
     });
   });
 });
