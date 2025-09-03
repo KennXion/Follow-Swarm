@@ -20,7 +20,8 @@ describe('Bot Protection Middleware', () => {
     app = express();
     app.use(express.json());
     app.use((req, res, next) => {
-      req.session = { signupMetrics: {} };
+      // Initialize session object without signupMetrics to test initialization
+      req.session = {};
       next();
     });
   });

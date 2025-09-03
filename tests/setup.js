@@ -109,16 +109,36 @@ jest.mock('../src/database', () => ({
     // Mock follow count query for rate limiting
     if (sql.includes('COUNT') && sql.includes('follows')) {
       // Check if this is a rate limit test (looking for high follow count)
-      const userId = params?.[0];
+      const userId = params?.[0]?.toString();
+      const since = params?.[1];
+      
       // Return high count for rate limit testing
       if (global.__testRateLimit && global.__testRateLimit[userId]) {
         return Promise.resolve({ rows: [{ count: '35' }] });
       }
+      
       // Count actual follows for the user
-      const followCount = Array.from(mockFollows.values()).filter(
-        follow => follow.follower_user_id === userId && follow.status === 'completed'
-      ).length;
-      return Promise.resolve({ rows: [{ count: String(followCount) }] });
+      let follows = Array.from(mockFollows.values()).filter(
+        follow => follow.follower_user_id === userId || follow.follower_user_id === userId?.toString()
+      );
+      
+      // Filter by status if the query includes status filter
+      if (sql.includes("status IN ('pending', 'completed')")) {
+        follows = follows.filter(f => f.status === 'pending' || f.status === 'completed');
+      } else if (sql.includes("status = 'completed'")) {
+        follows = follows.filter(f => f.status === 'completed');
+      }
+      
+      // Filter by date if provided
+      if (since) {
+        const sinceTime = new Date(since).getTime();
+        follows = follows.filter(f => {
+          const followTime = f.created_at ? new Date(f.created_at).getTime() : Date.now();
+          return followTime >= sinceTime;
+        });
+      }
+      
+      return Promise.resolve({ rows: [{ count: String(follows.length) }] });
     }
     if (sql.includes('COUNT')) {
       return Promise.resolve({ rows: [{ count: '10', total: 10 }] });

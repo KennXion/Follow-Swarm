@@ -1,9 +1,13 @@
-// The queueManager is already mocked in setup.js
 const queueManager = require('../src/services/queueManager');
 const db = require('../src/database');
+const Bull = require('bull');
+
+// Mock Bull queue
+jest.mock('bull');
 
 describe('Queue Manager', () => {
   let testUser;
+  let mockQueue;
 
   beforeAll(async () => {
     await db.connect();
@@ -16,11 +20,25 @@ describe('Queue Manager', () => {
       subscription_tier: 'pro'
     });
 
-    // Reset the queue manager mock
-    queueManager.initialize.mockClear();
-    queueManager.addFollowJob.mockClear();
-    queueManager.addBatchFollowJobs.mockClear();
-    queueManager.getQueueStatus.mockClear();
+    // Setup mock queue
+    mockQueue = {
+      add: jest.fn().mockResolvedValue({ id: 'mock_job_id' }),
+      process: jest.fn(),
+      on: jest.fn(),
+      getWaitingCount: jest.fn().mockResolvedValue(5),
+      getActiveCount: jest.fn().mockResolvedValue(2),
+      getCompletedCount: jest.fn().mockResolvedValue(100),
+      getFailedCount: jest.fn().mockResolvedValue(3),
+      getDelayedCount: jest.fn().mockResolvedValue(1),
+      isPaused: jest.fn().mockResolvedValue(false),
+      pause: jest.fn().mockResolvedValue(),
+      resume: jest.fn().mockResolvedValue(),
+      getJobs: jest.fn().mockResolvedValue([]),
+      clean: jest.fn().mockResolvedValue(),
+      close: jest.fn().mockResolvedValue()
+    };
+
+    Bull.mockImplementation(() => mockQueue);
   });
 
   afterAll(async () => {
@@ -56,8 +74,8 @@ describe('Queue Manager', () => {
         { priority: 10, delay: 5000 }
       );
 
-      expect(job).toHaveProperty('id', 'test-job-1');
-      expect(queueManager.addFollowJob).toHaveBeenCalledWith(
+      expect(job).toHaveProperty('id', 'mock_job_id');
+      expect(mockQueue.add).toHaveBeenCalledWith(
         'follow-artist',
         expect.objectContaining({
           userId: testUser.id,
@@ -80,11 +98,15 @@ describe('Queue Manager', () => {
       );
 
       expect(jobs).toHaveLength(3);
-      expect(queueManager.addBatchFollowJobs).toHaveBeenCalledWith(
-        testUser.id,
-        artistIds,
-        { priority: 5, delayBetween: 60000 }
-      );
+      expect(mockQueue.add).toHaveBeenCalledTimes(artistIds.length);
+      
+      // Verify increasing delays
+      const calls = mockQueue.add.mock.calls;
+      for (let i = 1; i < calls.length; i++) {
+        const prevDelay = calls[i - 1][2].delay;
+        const currentDelay = calls[i][2].delay;
+        expect(currentDelay).toBeGreaterThan(prevDelay);
+      }
     });
   });
 
@@ -182,15 +204,15 @@ describe('Queue Manager', () => {
     it('should pause queue', async () => {
       const result = await queueManager.pauseQueue('follow', true);
       
-      expect(result).toBeTruthy();
-      expect(queueManager.pauseQueue).toHaveBeenCalledWith('follow', true);
+      expect(result).toEqual({ queue: 'follow', paused: true });
+      expect(mockQueue.pause).toHaveBeenCalled();
     });
 
     it('should resume queue', async () => {
       const result = await queueManager.pauseQueue('follow', false);
       
-      expect(result).toBeTruthy();
-      expect(queueManager.pauseQueue).toHaveBeenCalledWith('follow', false);
+      expect(result).toEqual({ queue: 'follow', paused: false });
+      expect(mockQueue.resume).toHaveBeenCalled();
     });
   });
 
@@ -246,7 +268,8 @@ describe('Queue Manager', () => {
     it('should shutdown cleanly', async () => {
       await queueManager.shutdown();
       
-      expect(queueManager.shutdown).toHaveBeenCalled();
+      expect(queueManager.isInitialized).toBe(false);
+      expect(mockQueue.close).toHaveBeenCalled();
     });
   });
 });

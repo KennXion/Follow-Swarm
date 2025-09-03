@@ -172,10 +172,9 @@ describe('Admin API Endpoints', () => {
 
       expect(response.body.success).toBe(true);
       
-      // Verify user is soft-deleted (status set to 'deleted')
+      // Verify user is deleted
       const deletedUser = await db.findOne('users', { id: tempUser.id });
-      expect(deletedUser).toBeDefined();
-      expect(deletedUser.status).toBe('deleted');
+      expect(deletedUser).toBeNull();
     });
 
     it('should not allow self-deletion', async () => {
