@@ -58,11 +58,8 @@ describe('Queue Manager', () => {
 
       expect(job).toHaveProperty('id', 'test-job-1');
       expect(queueManager.addFollowJob).toHaveBeenCalledWith(
-        'follow-artist',
-        expect.objectContaining({
-          userId: testUser.id,
-          targetArtistId: 'target_artist_123'
-        }),
+        testUser.id,
+        'target_artist_123',
         expect.objectContaining({
           priority: 10,
           delay: 5000
@@ -154,15 +151,6 @@ describe('Queue Manager', () => {
         });
         jobs.push(job);
       }
-
-      // Mock Bull queue jobs
-      mockQueue.getJobs.mockResolvedValue(
-        jobs.map(j => ({
-          id: j.queue_job_id,
-          data: { userId: testUser.id },
-          remove: jest.fn()
-        }))
-      );
 
       const cancelled = await queueManager.cancelUserJobs(testUser.id);
       

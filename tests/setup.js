@@ -562,7 +562,14 @@ const mockQueueManager = {
       }))
     );
   }),
-  getUserJobs: jest.fn().mockResolvedValue([]),
+  getUserJobs: jest.fn().mockImplementation((userId, status) => {
+    const userJobs = Array.from(mockQueueJobs.values()).filter(job => {
+      if (job.user_id !== userId && job.user_id !== userId?.toString()) return false;
+      if (status && job.status !== status) return false;
+      return true;
+    });
+    return Promise.resolve(userJobs);
+  }),
   cancelUserJobs: jest.fn().mockImplementation((userId) => {
     // Find all pending/queued jobs for this user and cancel them
     const userJobs = Array.from(mockQueueJobs.values()).filter(
@@ -576,14 +583,41 @@ const mockQueueManager = {
     
     return Promise.resolve(userJobs);
   }),
-  getQueueStatus: jest.fn().mockResolvedValue({
-    waiting: 0,
-    active: 0,
-    completed: 0,
-    failed: 0
+  getQueueStatus: jest.fn().mockImplementation((queueName) => {
+    if (queueName === 'invalid') {
+      return Promise.reject(new Error('Queue invalid not found'));
+    }
+    return Promise.resolve({
+      name: queueName,
+      counts: {
+        waiting: 5,
+        active: 2,
+        completed: 100,
+        failed: 3,
+        delayed: 1
+      },
+      isPaused: false,
+      workers: 1
+    });
   }),
   pauseQueue: jest.fn().mockResolvedValue(true),
-  cleanupOldJobs: jest.fn().mockResolvedValue({ removed: 0 }),
+  cleanupOldJobs: jest.fn().mockImplementation((daysOld = 30) => {
+    const cutoffDate = new Date(Date.now() - daysOld * 24 * 60 * 60 * 1000);
+    let removedCount = 0;
+    
+    // Find and delete old completed jobs
+    for (const [key, job] of mockQueueJobs.entries()) {
+      if (job.status === 'completed' && job.completed_at) {
+        const completedDate = new Date(job.completed_at);
+        if (completedDate < cutoffDate) {
+          mockQueueJobs.delete(key);
+          removedCount++;
+        }
+      }
+    }
+    
+    return Promise.resolve({ removed: removedCount });
+  }),
   queues: {
     follow: {
       add: jest.fn().mockResolvedValue({ id: 'test-job-1' }),
