@@ -70,9 +70,10 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT'));   // Ctrl+C
  */
 const startServer = async () => {
   try {
-    // Initialize PostgreSQL connection pool
+    // Initialize PostgreSQL connection pool with validation
     await db.connect();
-    logger.info('Database connected');
+    await db.validateConnection();
+    logger.info('Database connected and validated');
     
     // Initialize Redis connections
     redis.connect();

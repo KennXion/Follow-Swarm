@@ -70,13 +70,35 @@ if (config.server.env === 'production') {
       filename: 'logs/error.log',
       level: 'error', // Only error level and above
       maxsize: 5242880, // 5MB per file
-      maxFiles: 5 // Keep 5 rotated files
+      maxFiles: 5, // Keep 5 rotated files
+      format: winston.format.combine(
+        winston.format.timestamp(),
+        winston.format.errors({ stack: true }),
+        winston.format.json()
+      )
     }),
     // Combined log file: All log levels
     new winston.transports.File({
       filename: 'logs/combined.log',
       maxsize: 5242880, // 5MB per file
-      maxFiles: 5 // Keep 5 rotated files
+      maxFiles: 5, // Keep 5 rotated files
+      format: winston.format.combine(
+        winston.format.timestamp(),
+        winston.format.errors({ stack: true }),
+        winston.format.json()
+      )
+    })
+  );
+}
+
+// Development: Add file logging for debugging if needed
+if (config.server.env === 'development' && process.env.LOG_TO_FILE === 'true') {
+  transports.push(
+    new winston.transports.File({
+      filename: 'logs/development.log',
+      maxsize: 5242880, // 5MB per file
+      maxFiles: 2, // Keep 2 files in development
+      format: consoleFormat
     })
   );
 }
@@ -100,5 +122,45 @@ logger.stream = {
   }
 };
 
-// Export configured logger for use throughout application
-module.exports = logger;
+/**
+ * Helper function to sanitize sensitive data from logs
+ * @param {Object} data - Data to sanitize
+ * @returns {Object} Sanitized data
+ */
+const sanitize = (data) => {
+  if (!data || typeof data !== 'object') return data;
+  
+  const sanitized = { ...data };
+  const sensitiveKeys = ['password', 'token', 'secret', 'key', 'authorization', 'cookie'];
+  
+  Object.keys(sanitized).forEach(key => {
+    const lowerKey = key.toLowerCase();
+    if (sensitiveKeys.some(sensitive => lowerKey.includes(sensitive))) {
+      sanitized[key] = '[REDACTED]';
+    } else if (typeof sanitized[key] === 'object') {
+      sanitized[key] = sanitize(sanitized[key]);
+    }
+  });
+  
+  return sanitized;
+};
+
+/**
+ * Enhanced logger methods with automatic sanitization
+ */
+const enhancedLogger = {
+  ...logger,
+  
+  // Override methods to add sanitization
+  info: (message, meta) => logger.info(message, sanitize(meta)),
+  error: (message, meta) => logger.error(message, sanitize(meta)),
+  warn: (message, meta) => logger.warn(message, sanitize(meta)),
+  debug: (message, meta) => logger.debug(message, sanitize(meta)),
+  http: (message, meta) => logger.http(message, sanitize(meta)),
+  
+  // Keep stream for Morgan
+  stream: logger.stream
+};
+
+// Export enhanced logger for use throughout application
+module.exports = enhancedLogger;

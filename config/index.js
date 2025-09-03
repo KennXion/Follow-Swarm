@@ -1,7 +1,5 @@
 require('dotenv').config();
 
-console.log('Loading config with SPOTIFY_REDIRECT_URI:', process.env.SPOTIFY_REDIRECT_URI);
-
 module.exports = {
   server: {
     port: process.env.PORT || 3001,

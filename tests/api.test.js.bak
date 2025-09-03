@@ -134,8 +134,17 @@ describe('API Endpoints', () => {
       });
 
       it('should respect rate limits', async () => {
-        // Set up global flag to trigger rate limit in mock
-        global.__testRateLimit = { [testUser.id]: true };
+        // Create many follows to trigger rate limit
+        const follows = [];
+        for (let i = 0; i < 35; i++) {
+          const follow = await db.insert('follows', {
+            follower_user_id: testUser.id,
+            target_artist_id: `rate_limit_artist_${i}`,
+            status: 'completed',
+            created_at: new Date()
+          });
+          follows.push(follow);
+        }
 
         const response = await request(app)
           .post('/api/follows/single')
@@ -149,7 +158,9 @@ describe('API Endpoints', () => {
         expect(response.body).toHaveProperty('limits');
 
         // Clean up
-        delete global.__testRateLimit;
+        for (const follow of follows) {
+          await db.delete('follows', follow.id);
+        }
       });
     });
 

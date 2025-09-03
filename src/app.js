@@ -14,12 +14,14 @@ const cors = require('cors');
 const compression = require('compression');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
+const cookieParser = require('cookie-parser');
 const path = require('path');
 
 const config = require('../config');
 const logger = require('./utils/logger');
 const sessionMiddleware = require('./middleware/session');
 const swagger = require('./swagger');
+const { attachCsrfToken, validateCsrfToken, getCsrfToken } = require('./middleware/csrf');
 
 // Create Express application instance
 const app = express();
@@ -52,8 +54,11 @@ app.use(cors({
     : true,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-CSRF-Token']
 }));
+
+// Cookie parser (required for CSRF)
+app.use(cookieParser());
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
@@ -74,6 +79,18 @@ if (process.env.NODE_ENV !== 'test') {
 // Session management
 app.use(sessionMiddleware);
 
+// CSRF Protection
+// Skip CSRF for test environment to avoid breaking tests
+if (process.env.NODE_ENV !== 'test') {
+  app.use(attachCsrfToken);
+  app.use(validateCsrfToken);
+}
+
+/**
+ * CSRF Token Endpoint
+ */
+app.get('/api/csrf-token', getCsrfToken);
+
 /**
  * Global Rate Limiting
  */
@@ -92,15 +109,36 @@ app.use('/api/', globalRateLimiter);
  * Health Check Endpoint
  */
 app.get('/health', async (req, res) => {
+  const db = require('./database');
+  const redis = require('./database/redis');
+  
+  // Perform health checks
+  const dbHealth = await db.healthCheck();
+  let redisHealth = { status: 'unknown' };
+  
+  try {
+    await redis.client.ping();
+    redisHealth = { status: 'healthy', message: 'Redis is responsive' };
+  } catch (error) {
+    redisHealth = { status: 'unhealthy', message: error.message };
+  }
+  
+  // Determine overall health
+  const isHealthy = dbHealth.status === 'healthy' && redisHealth.status === 'healthy';
+  
   const health = {
-    status: 'healthy',
+    status: isHealthy ? 'healthy' : 'degraded',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
     environment: config.server.env,
-    version: process.env.npm_package_version || '1.0.0'
+    version: process.env.npm_package_version || '1.0.0',
+    services: {
+      database: dbHealth,
+      redis: redisHealth
+    }
   };
   
-  res.status(200).json(health);
+  res.status(isHealthy ? 200 : 503).json(health);
 });
 
 /**

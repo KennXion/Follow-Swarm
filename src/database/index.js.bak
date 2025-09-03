@@ -65,11 +65,6 @@ class Database {
       
       this.pool = new Pool(poolConfig);
 
-      // Register error handlers for the pool
-      this.pool.on('error', (err, client) => {
-        logger.error('Unexpected database pool error:', err);
-      });
-
       // Test connection by executing a simple query
       const client = await this.pool.connect();
       await client.query('SELECT NOW()'); // Verify database is responsive
@@ -79,97 +74,7 @@ class Database {
       return this.pool;
     } catch (error) {
       logger.error('Database connection failed:', error);
-      
-      // Clean up pool if connection failed
-      if (this.pool) {
-        await this.pool.end();
-        this.pool = null;
-      }
-      
       throw error;
-    }
-  }
-
-  /**
-   * Health check for database connection
-   * Tests if database is reachable and responsive
-   * @returns {Object} Health status with details
-   */
-  async healthCheck() {
-    const startTime = Date.now();
-    
-    try {
-      if (!this.pool) {
-        return {
-          status: 'unhealthy',
-          message: 'Database pool not initialized',
-          responseTime: Date.now() - startTime
-        };
-      }
-
-      // Test with a simple query
-      const result = await this.pool.query('SELECT 1 as health_check');
-      const responseTime = Date.now() - startTime;
-      
-      // Check pool statistics
-      const poolStats = {
-        totalCount: this.pool.totalCount,
-        idleCount: this.pool.idleCount,
-        waitingCount: this.pool.waitingCount
-      };
-      
-      return {
-        status: 'healthy',
-        message: 'Database is responsive',
-        responseTime,
-        poolStats,
-        timestamp: new Date().toISOString()
-      };
-    } catch (error) {
-      const responseTime = Date.now() - startTime;
-      
-      logger.error('Database health check failed:', error);
-      
-      return {
-        status: 'unhealthy',
-        message: error.message,
-        responseTime,
-        timestamp: new Date().toISOString()
-      };
-    }
-  }
-
-  /**
-   * Validates database connection on startup
-   * Ensures database is reachable before app starts
-   * @throws {Error} If validation fails
-   */
-  async validateConnection() {
-    const maxRetries = 5;
-    const retryDelay = 2000; // 2 seconds
-    
-    for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      try {
-        logger.info(`Validating database connection (attempt ${attempt}/${maxRetries})...`);
-        
-        const health = await this.healthCheck();
-        
-        if (health.status === 'healthy') {
-          logger.info('Database connection validated successfully');
-          return true;
-        }
-        
-        throw new Error(health.message);
-      } catch (error) {
-        logger.warn(`Database validation attempt ${attempt} failed:`, error.message);
-        
-        if (attempt === maxRetries) {
-          throw new Error(`Database connection validation failed after ${maxRetries} attempts: ${error.message}`);
-        }
-        
-        // Wait before retrying
-        await new Promise(resolve => setTimeout(resolve, retryDelay));
-      }
     }
   }
 

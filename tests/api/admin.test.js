@@ -75,10 +75,11 @@ describe('Admin API Endpoints', () => {
         .expect(200);
 
       expect(response.body.success).toBe(true);
-      expect(response.body.data).toHaveProperty('totalUsers');
-      expect(response.body.data).toHaveProperty('activeUsers');
-      expect(response.body.data).toHaveProperty('totalFollows');
-      expect(response.body.data).toHaveProperty('revenue');
+      expect(response.body.data).toHaveProperty('users');
+      expect(response.body.data.users).toHaveProperty('total');
+      expect(response.body.data.users).toHaveProperty('active');
+      expect(response.body.data).toHaveProperty('follows');
+      expect(response.body.data.follows).toHaveProperty('total');
     });
   });
 
@@ -97,9 +98,9 @@ describe('Admin API Endpoints', () => {
         .expect(200);
 
       expect(response.body.success).toBe(true);
-      expect(response.body.data).toBeInstanceOf(Array);
-      expect(response.body.pagination).toHaveProperty('limit', 10);
-      expect(response.body.pagination).toHaveProperty('offset', 0);
+      expect(response.body.data.users).toBeInstanceOf(Array);
+      expect(response.body.data.pagination).toHaveProperty('limit', 10);
+      expect(response.body.data.pagination).toHaveProperty('page', 1);
     });
 
     it('should support search filters', async () => {
@@ -109,7 +110,7 @@ describe('Admin API Endpoints', () => {
         .expect(200);
 
       expect(response.body.success).toBe(true);
-      expect(response.body.data).toBeInstanceOf(Array);
+      expect(response.body.data.users).toBeInstanceOf(Array);
     });
   });
 
@@ -119,13 +120,13 @@ describe('Admin API Endpoints', () => {
         .put(`/api/admin/users/${regularUser.id}`)
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
-          subscription_tier: 'pro',
-          is_active: true
+          subscriptionPlan: 'pro',
+          status: 'active'
         })
         .expect(200);
 
       expect(response.body.success).toBe(true);
-      expect(response.body.data.subscription_tier).toBe('pro');
+      expect(response.body.data.user.subscription_plan).toBe('pro');
     });
 
     it('should not allow regular users to update others', async () => {
