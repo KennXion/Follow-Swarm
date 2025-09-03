@@ -231,12 +231,8 @@ jest.mock('../src/middleware/botProtection', () => ({
   checkSuspiciousIP: (req, res, next) => next(),
   detectBot: (req, res, next) => next(),
   oauthRateLimiter: (req, res, next) => next(),
-  apiRateLimiter: (req, res, next) => next(),
-  checkHoneypot: (req, res, next) => next(),
   verifySpotifyAccount: jest.fn().mockResolvedValue(0.1),
-  analyzeSignupBehavior: jest.fn().mockReturnValue(0.1),
-  logSuspiciousActivity: jest.fn().mockResolvedValue(undefined),
-  initializeBotProtection: jest.fn().mockResolvedValue(undefined)
+  analyzeSignupBehavior: jest.fn().mockReturnValue(0.1)
 }));
 
 // Mock Queue Manager in test environment
@@ -280,8 +276,6 @@ const mockQueueManager = {
     completed: 0,
     failed: 0
   }),
-  pauseQueue: jest.fn().mockResolvedValue(true),
-  cleanupOldJobs: jest.fn().mockResolvedValue({ removed: 0 }),
   queues: {
     follow: {
       add: jest.fn().mockResolvedValue({ id: 'test-job-1' }),

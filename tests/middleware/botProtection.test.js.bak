@@ -1,8 +1,5 @@
 const request = require('supertest');
 const express = require('express');
-
-// Since we're mocking in setup.js, we need to use the actual implementation for unit tests
-jest.unmock('../../src/middleware/botProtection');
 const {
   signupRateLimiter,
   checkHoneypot,

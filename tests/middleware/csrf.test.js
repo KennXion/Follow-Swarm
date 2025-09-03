@@ -4,11 +4,11 @@
 
 // Mock the csrf-csrf library
 const mockValidateRequest = jest.fn();
-const mockGenerateToken = jest.fn(() => 'test-csrf-token');
+const mockGenerateCsrfToken = jest.fn(() => 'test-csrf-token');
 
 jest.mock('csrf-csrf', () => ({
   doubleCsrf: jest.fn(() => ({
-    generateToken: mockGenerateToken,
+    generateCsrfToken: mockGenerateCsrfToken,
     validateRequest: mockValidateRequest,
     doubleCsrfProtection: jest.fn((req, res, next) => next())
   }))
