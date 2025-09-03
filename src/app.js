@@ -82,9 +82,8 @@ app.use(sessionMiddleware);
 // CSRF Protection
 // Skip CSRF for test environment to avoid breaking tests
 if (process.env.NODE_ENV !== 'test') {
-  // TODO: Fix CSRF middleware - generateToken is not a function error
-  // app.use(attachCsrfToken);
-  // app.use(validateCsrfToken);
+  app.use(attachCsrfToken);
+  app.use(validateCsrfToken);
 }
 
 /**

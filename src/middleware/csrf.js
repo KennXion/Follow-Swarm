@@ -12,6 +12,10 @@ const logger = require('../utils/logger');
 // Configure CSRF protection
 const csrfOptions = {
   getSecret: () => config.security.sessionSecret,
+  getSessionIdentifier: (req) => {
+    // Use session ID if available, otherwise use a combination of IP and user agent
+    return req.session?.id || `${req.ip}-${req.get('user-agent')}`;
+  },
   cookieName: '__Host-psifi.x-csrf-token',
   cookieOptions: {
     sameSite: 'strict',
@@ -29,7 +33,7 @@ const csrfOptions = {
 
 // Create CSRF protection middleware
 const { 
-  generateToken, 
+  generateCsrfToken, 
   validateRequest, 
   doubleCsrfProtection 
 } = doubleCsrf(csrfOptions);
@@ -39,8 +43,8 @@ const {
  */
 const attachCsrfToken = (req, res, next) => {
   try {
-    // generateToken is a method that needs req and res
-    const csrfToken = generateToken(res, req);
+    // generateCsrfToken is a method that needs req and res
+    const csrfToken = generateCsrfToken(req, res);
     
     // Make token available in multiple ways
     res.locals.csrfToken = csrfToken;
@@ -95,7 +99,7 @@ const validateCsrfToken = (req, res, next) => {
  * Endpoint to get a fresh CSRF token
  */
 const getCsrfToken = (req, res) => {
-  const csrfToken = generateToken(req, res);
+  const csrfToken = generateCsrfToken(req, res);
   res.json({ csrfToken });
 };
 
