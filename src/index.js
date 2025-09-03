@@ -75,6 +75,13 @@ const startServer = async () => {
     await db.validateConnection();
     logger.info('Database connected and validated');
     
+    // Initialize bot protection tables after database is connected
+    if (process.env.NODE_ENV !== 'test') {
+      const { initializeBotProtection } = require('./middleware/botProtection');
+      await initializeBotProtection();
+      logger.info('Bot protection tables initialized');
+    }
+    
     // Initialize Redis connections
     redis.connect();
     logger.info('Redis connected');

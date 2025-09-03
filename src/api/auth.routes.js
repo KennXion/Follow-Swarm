@@ -28,10 +28,7 @@ const {
   initializeBotProtection
 } = require('../middleware/botProtection');
 
-// Initialize bot protection tables on startup (skip in test environment)
-if (process.env.NODE_ENV !== 'test') {
-  initializeBotProtection();
-}
+// Bot protection tables will be initialized after database connection in index.js
 
 /**
  * GET /auth/spotify

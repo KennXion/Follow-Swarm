@@ -300,6 +300,12 @@ const logSuspiciousActivity = async (req, type, details) => {
  */
 const initializeBotProtection = async () => {
   try {
+    // Check if database is connected
+    if (!db.pool) {
+      logger.warn('Database not connected, skipping bot protection initialization');
+      return;
+    }
+    
     // Create suspicious IPs table
     await db.query(`
       CREATE TABLE IF NOT EXISTS suspicious_ips (
@@ -321,7 +327,7 @@ const initializeBotProtection = async () => {
         id SERIAL PRIMARY KEY,
         ip_address VARCHAR(45),
         user_agent TEXT,
-        user_id INTEGER REFERENCES users(id),
+        user_id UUID REFERENCES users(id),
         event_type VARCHAR(50),
         details JSONB,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
