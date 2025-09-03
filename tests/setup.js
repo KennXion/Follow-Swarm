@@ -159,6 +159,40 @@ jest.mock('../src/database', () => ({
       
       return Promise.resolve({ rows: [{ count: String(follows.length) }] });
     }
+    // Handle getUserStats query with COUNT FILTER for follows
+    if (sql.includes('COUNT(*) FILTER') && sql.includes('FROM follows')) {
+      const userId = params?.[0];
+      const since = params?.[1];
+      
+      let userFollows = Array.from(mockFollows.values()).filter(
+        follow => follow.follower_user_id === userId || follow.follower_user_id === userId?.toString()
+      );
+      
+      // Filter by date if provided
+      if (since) {
+        const sinceTime = new Date(since).getTime();
+        userFollows = userFollows.filter(follow => {
+          const followTime = follow.created_at ? new Date(follow.created_at).getTime() : Date.now();
+          return followTime >= sinceTime;
+        });
+      }
+      
+      const completed = userFollows.filter(f => f.status === 'completed').length;
+      const pending = userFollows.filter(f => f.status === 'pending').length;
+      const failed = userFollows.filter(f => f.status === 'failed').length;
+      const total = userFollows.length;
+      
+      return Promise.resolve({ 
+        rows: [{
+          completed: String(completed),
+          pending: String(pending),
+          failed: String(failed),
+          total: String(total),
+          first_follow: userFollows[0]?.created_at || null,
+          last_follow: userFollows.find(f => f.status === 'completed')?.completed_at || null
+        }]
+      });
+    }
     // Skip this generic handler for analytics queries
     if (sql.includes('COUNT') && !sql.includes('analytics')) {
       return Promise.resolve({ rows: [{ count: '10', total: 10 }] });
@@ -185,6 +219,55 @@ jest.mock('../src/database', () => ({
       }
       
       return Promise.resolve({ rows: userFollows, rowCount: userFollows.length });
+    }
+    // Handle daily stats GROUP BY for follows
+    if (sql.includes('DATE(created_at)') && sql.includes('FROM follows') && sql.includes('GROUP BY')) {
+      const userId = params?.[0];
+      const since = params?.[1];
+      
+      let userFollows = Array.from(mockFollows.values()).filter(
+        follow => (follow.follower_user_id === userId || follow.follower_user_id === userId?.toString()) &&
+                  follow.status === 'completed'
+      );
+      
+      // Filter by date if provided
+      if (since) {
+        const sinceTime = new Date(since).getTime();
+        userFollows = userFollows.filter(follow => {
+          const followTime = follow.created_at ? new Date(follow.created_at).getTime() : Date.now();
+          return followTime >= sinceTime;
+        });
+      }
+      
+      // Group by date
+      const grouped = {};
+      userFollows.forEach(follow => {
+        const date = new Date(follow.created_at || Date.now()).toISOString().split('T')[0];
+        grouped[date] = (grouped[date] || 0) + 1;
+      });
+      
+      const rows = Object.entries(grouped).map(([date, count]) => ({
+        date,
+        count: String(count)
+      })).sort((a, b) => b.date.localeCompare(a.date));
+      
+      return Promise.resolve({ rows });
+    }
+    // Handle UPDATE queue_jobs for cancelling
+    if (sql.includes('UPDATE queue_jobs') && sql.includes('cancelled')) {
+      const userId = params?.[0]?.toString();
+      const cancelledJobs = [];
+      
+      for (const [key, job] of mockQueueJobs.entries()) {
+        if ((job.user_id === userId || job.user_id === userId?.toString()) &&
+            (job.status === 'scheduled' || job.status === 'rescheduled')) {
+          job.status = 'cancelled';
+          job.completed_at = new Date();
+          cancelledJobs.push({ ...job });
+        }
+      }
+      
+      return Promise.resolve({ rows: cancelledJobs, rowCount: cancelledJobs.length });
     }
     if (sql.includes('UPDATE users') && sql.includes('SET')) {
       // Extract the user ID from the WHERE clause
