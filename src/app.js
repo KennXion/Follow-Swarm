@@ -142,22 +142,18 @@ app.get('/health', async (req, res) => {
 });
 
 /**
- * API Routes
- * Only mount routes if not in a pure mock test environment
+ * API Documentation (skip in test environment)
  */
-if (process.env.NODE_ENV !== 'test' || !process.env.MOCK_ONLY) {
-  /**
-   * API Documentation
-   */
+if (process.env.NODE_ENV !== 'test') {
   app.use('/api-docs', swagger.serve, swagger.setup);
-
-  /**
-   * API Routes
-   */
-  app.use('/auth', require('./api/auth.routes'));
-  app.use('/api/follows', require('./api/follow.routes'));
-  app.use('/api/admin', require('./api/admin.routes'));
 }
+
+/**
+ * API Routes
+ */
+app.use('/auth', require('./api/auth.routes'));
+app.use('/api/follows', require('./api/follow.routes'));
+app.use('/api/admin', require('./api/admin.routes'));
 
 /**
  * Static Files (Production)

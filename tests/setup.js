@@ -102,7 +102,7 @@ jest.mock('../src/database', () => ({
   query: jest.fn().mockImplementation((sql, params) => {
     // Mock responses for common queries
     if (sql.includes('SELECT * FROM users WHERE id')) {
-      const userId = params?.[0];
+      const userId = params?.[0]?.toString(); // Convert to string
       const user = mockUsers.get(userId);
       return Promise.resolve({ rows: user ? [user] : [] });
     }
@@ -146,7 +146,37 @@ jest.mock('../src/database', () => ({
       
       return Promise.resolve({ rows: userFollows, rowCount: userFollows.length });
     }
+    if (sql.includes('UPDATE users') && sql.includes('SET')) {
+      // Extract the user ID from the WHERE clause
+      const userId = params?.[params.length - 1]?.toString();
+      const user = mockUsers.get(userId);
+      if (user) {
+        // Update the user in the mock store
+        const updatedUser = { ...user };
+        // Parse the SET clause to update fields
+        if (sql.includes('subscription_plan')) {
+          const planIndex = params.findIndex(p => ['free', 'pro', 'premium'].includes(p));
+          if (planIndex !== -1) updatedUser.subscription_plan = params[planIndex];
+        }
+        if (sql.includes('status')) {
+          const statusIndex = params.findIndex(p => ['active', 'inactive', 'suspended'].includes(p));
+          if (statusIndex !== -1) updatedUser.status = params[statusIndex];
+        }
+        mockUsers.set(userId, updatedUser);
+        return Promise.resolve({ rows: [updatedUser], rowCount: 1 });
+      }
+      return Promise.resolve({ rows: [], rowCount: 0 });
+    }
     if (sql.includes('DELETE FROM users')) {
+      const userId = params?.[0]?.toString();
+      if (mockUsers.has(userId)) {
+        mockUsers.delete(userId);
+        return Promise.resolve({ rows: [], rowCount: 1 });
+      }
+      return Promise.resolve({ rows: [], rowCount: 0 });
+    }
+    // Handle analytics/admin queries
+    if (sql.includes('DATE_TRUNC') || sql.includes('security_logs') || sql.includes('suspicious_ips')) {
       return Promise.resolve({ rows: [] });
     }
     return Promise.resolve({ rows: [] });
@@ -154,46 +184,48 @@ jest.mock('../src/database', () => ({
   insert: jest.fn().mockImplementation((table, data) => {
     if (table === 'users') {
       const id = global.mockUserId++;
-      const record = { id, ...data };
-      mockUsers.set(id, record);
+      const record = { id: id.toString(), ...data }; // Store as string to match UUID format
+      mockUsers.set(id.toString(), record);
       return Promise.resolve(record);
     } else if (table === 'follows') {
       const id = global.mockFollowId++;
-      const record = { id, ...data };
-      mockFollows.set(id, record);
+      const record = { id: id.toString(), ...data };
+      mockFollows.set(id.toString(), record);
       return Promise.resolve(record);
     } else if (table === 'queue_jobs') {
       const id = global.mockJobId++;
-      const record = { id, ...data };
-      mockQueueJobs.set(id, record);
+      const record = { id: id.toString(), ...data };
+      mockQueueJobs.set(id.toString(), record);
       return Promise.resolve(record);
     }
     const id = global.mockUserId++;
-    const record = { id, ...data };
+    const record = { id: id.toString(), ...data };
     return Promise.resolve(record);
   }),
   update: jest.fn().mockImplementation((table, id, data) => {
-    if (table === 'queue_jobs' && mockQueueJobs.has(id)) {
-      const job = mockQueueJobs.get(id);
+    const idStr = id?.toString();
+    if (table === 'queue_jobs' && mockQueueJobs.has(idStr)) {
+      const job = mockQueueJobs.get(idStr);
       Object.assign(job, data);
       return Promise.resolve(job);
     }
     return Promise.resolve({ rows: [{ id: 1 }] });
   }),
   delete: jest.fn().mockImplementation((table, id) => {
+    const idStr = id?.toString();
     if (table === 'users') {
-      mockUsers.delete(id);
+      mockUsers.delete(idStr);
     } else if (table === 'follows') {
-      mockFollows.delete(id);
+      mockFollows.delete(idStr);
     } else if (table === 'queue_jobs') {
-      mockQueueJobs.delete(id);
+      mockQueueJobs.delete(idStr);
     }
-    return Promise.resolve({ rows: [{ id }] });
+    return Promise.resolve({ rows: [{ id: idStr }] });
   }),
   get: jest.fn().mockResolvedValue(null),
   findOne: jest.fn().mockImplementation((table, criteria) => {
     if (table === 'users' && criteria.id) {
-      return Promise.resolve(mockUsers.get(criteria.id) || null);
+      return Promise.resolve(mockUsers.get(criteria.id?.toString()) || null);
     }
     if (table === 'queue_jobs') {
       // Find job by id and user_id

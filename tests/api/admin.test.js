@@ -116,6 +116,10 @@ describe('Admin API Endpoints', () => {
 
   describe('PUT /api/admin/users/:userId', () => {
     it('should allow admin to update user details', async () => {
+      // Debug: Check if regularUser exists and has valid ID
+      expect(regularUser).toBeDefined();
+      expect(regularUser.id).toBeDefined();
+      
       const response = await request(app)
         .put(`/api/admin/users/${regularUser.id}`)
         .set('Authorization', `Bearer ${adminToken}`)
