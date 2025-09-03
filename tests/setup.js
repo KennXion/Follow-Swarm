@@ -63,6 +63,7 @@ jest.mock('../src/database/redis', () => {
     disconnect: jest.fn().mockResolvedValue(true),
     cacheToken: jest.fn().mockResolvedValue('OK'),
     getCachedToken: jest.fn().mockResolvedValue(null),
+    invalidateToken: jest.fn().mockResolvedValue(1),
     incrementRateLimit: jest.fn().mockResolvedValue(1),
     set: jest.fn((...args) => mockClient.set(...args)),
     get: jest.fn((key) => mockClient.get(key)),
@@ -179,7 +180,7 @@ jest.mock('../src/database', () => ({
           if (planIndex !== -1) updatedUser.subscription_plan = params[planIndex];
         }
         if (sql.includes('status')) {
-          const statusIndex = params.findIndex(p => ['active', 'inactive', 'suspended'].includes(p));
+          const statusIndex = params.findIndex(p => ['active', 'inactive', 'suspended', 'deleted'].includes(p));
           if (statusIndex !== -1) updatedUser.status = params[statusIndex];
         }
         mockUsers.set(userId, updatedUser);
