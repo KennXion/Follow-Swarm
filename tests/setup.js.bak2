@@ -196,38 +196,6 @@ jest.mock('../src/database', () => ({
       }
       return Promise.resolve({ rows: [], rowCount: 0 });
     }
-    // Handle admin stats queries
-    if (sql.includes('COUNT(CASE WHEN subscription_tier')) {
-      // Admin stats query for user counts
-      return Promise.resolve({ rows: [{
-        total_users: '10',
-        free_users: '5',
-        pro_users: '3',
-        premium_users: '2',
-        active_users: '8',
-        new_users_24h: '1',
-        new_users_7d: '3',
-        new_users_30d: '5'
-      }] });
-    }
-    if (sql.includes('COUNT(CASE WHEN status = \'completed\'')) {
-      // Admin stats query for follows
-      return Promise.resolve({ rows: [{
-        total_follows: '100',
-        completed_follows: '80',
-        failed_follows: '10',
-        pending_follows: '10',
-        follows_24h: '20',
-        follows_7d: '50'
-      }] });
-    }
-    if (sql.includes('COUNT(CASE WHEN subscription_tier = \'pro\'')) {
-      // Revenue query
-      return Promise.resolve({ rows: [{
-        pro_revenue: '30',
-        premium_revenue: '40'
-      }] });
-    }
     // Handle analytics/admin queries
     if (sql.includes('DATE_TRUNC') || sql.includes('security_logs') || sql.includes('suspicious_ips')) {
       return Promise.resolve({ rows: [] });
