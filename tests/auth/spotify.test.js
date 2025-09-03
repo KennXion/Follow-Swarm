@@ -174,7 +174,7 @@ describe('Spotify Authentication', () => {
       
       await expect(spotifyAuth.getUserProfile('invalid_token'))
         .rejects
-        .toThrow('Failed to get user profile');
+        .toThrow('Failed to fetch user profile');
     });
   });
   
@@ -251,16 +251,22 @@ describe('Spotify Authentication', () => {
       };
       
       encryption.encrypt = jest.fn().mockReturnValue('encrypted_token');
-      db.query = jest.fn().mockResolvedValue({ rows: [] });
+      db.findOne = jest.fn().mockResolvedValue(null);
+      db.insert = jest.fn().mockResolvedValue({ id: 1 });
       redis.cacheToken = jest.fn().mockResolvedValue('OK');
       
       await spotifyAuth.saveTokens(userId, tokens);
       
       expect(encryption.encrypt).toHaveBeenCalledWith('access_token_123');
       expect(encryption.encrypt).toHaveBeenCalledWith('refresh_token_123');
-      expect(db.query).toHaveBeenCalledWith(
-        expect.stringContaining('INSERT INTO oauth_tokens'),
-        expect.arrayContaining([userId, 'encrypted_token', 'encrypted_token'])
+      expect(db.findOne).toHaveBeenCalledWith('oauth_tokens', { user_id: userId });
+      expect(db.insert).toHaveBeenCalledWith(
+        'oauth_tokens',
+        expect.objectContaining({
+          user_id: userId,
+          access_token: 'encrypted_token',
+          refresh_token: 'encrypted_token'
+        })
       );
     });
     
@@ -273,11 +279,12 @@ describe('Spotify Authentication', () => {
       };
       
       encryption.encrypt = jest.fn().mockReturnValue('encrypted_token');
-      db.query = jest.fn().mockRejectedValue(new Error('Database error'));
+      db.findOne = jest.fn().mockResolvedValue(null);
+      db.insert = jest.fn().mockRejectedValue(new Error('Database error'));
       
       await expect(spotifyAuth.saveTokens(userId, tokens))
         .rejects
-        .toThrow('Failed to save tokens');
+        .toThrow('Database error');
     });
   });
   
@@ -285,7 +292,10 @@ describe('Spotify Authentication', () => {
     it('should return cached token if valid', async () => {
       const userId = 'user123';
       
-      redis.getCachedToken = jest.fn().mockResolvedValue('cached_access_token');
+      redis.getCachedToken = jest.fn().mockResolvedValue({
+        accessToken: 'cached_access_token',
+        expiresAt: new Date(Date.now() + 3600000) // Valid for 1 hour
+      });
       
       const token = await spotifyAuth.getValidAccessToken(userId);
       
@@ -336,16 +346,15 @@ describe('Spotify Authentication', () => {
     it('should delete tokens from database and cache', async () => {
       const userId = 'user123';
       
-      db.query = jest.fn().mockResolvedValue({ rows: [] });
-      redis.del = jest.fn().mockResolvedValue(1);
+      db.findOne = jest.fn().mockResolvedValue({ id: 'token123', user_id: userId });
+      db.delete = jest.fn().mockResolvedValue({ rows: [] });
+      redis.invalidateToken = jest.fn().mockResolvedValue(1);
       
       await spotifyAuth.revokeTokens(userId);
       
-      expect(db.query).toHaveBeenCalledWith(
-        expect.stringContaining('DELETE FROM oauth_tokens'),
-        [userId]
-      );
-      expect(redis.del).toHaveBeenCalledWith(`token:${userId}`);
+      expect(db.findOne).toHaveBeenCalledWith('oauth_tokens', { user_id: userId });
+      expect(db.delete).toHaveBeenCalledWith('oauth_tokens', 'token123');
+      expect(redis.invalidateToken).toHaveBeenCalledWith(userId);
     });
   });
 });
