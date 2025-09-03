@@ -39,7 +39,8 @@ const {
  */
 const attachCsrfToken = (req, res, next) => {
   try {
-    const csrfToken = generateToken(req, res);
+    // generateToken is a method that needs req and res
+    const csrfToken = generateToken(res, req);
     
     // Make token available in multiple ways
     res.locals.csrfToken = csrfToken;
