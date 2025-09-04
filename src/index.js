@@ -29,6 +29,7 @@ const logger = require('./utils/logger');
 const { SSLConfig } = require('../ssl/ssl-config');
 const app = require('./app');
 const queueManager = require('./services/queueManager'); // Background job processing
+const tokenRefreshJob = require('./jobs/tokenRefreshJob'); // Token refresh scheduler
 const { httpsRedirect, getSSLConfig } = require('../ssl/ssl-config'); // SSL configuration
 
 // Note: All Express middleware and routes are configured in app.js
@@ -50,6 +51,9 @@ const gracefulShutdown = async (signal) => {
   server.close(() => {
     logger.info('HTTP server closed');
   });
+  
+  // Stop token refresh job
+  tokenRefreshJob.stop();
   
   // Close all external connections
   await db.disconnect();          // PostgreSQL
@@ -89,6 +93,10 @@ const startServer = async () => {
     // Initialize Bull queues for background processing
     await queueManager.initialize();
     logger.info('Queue manager initialized');
+    
+    // Start token refresh job for continuous authentication
+    tokenRefreshJob.start();
+    logger.info('Token refresh job started');
     
     // Get SSL configuration for current environment
     const sslConfig = getSSLConfig();
