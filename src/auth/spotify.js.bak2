@@ -12,8 +12,6 @@ const logger = require('../utils/logger');
 const encryption = require('../utils/encryption');
 const db = require('../database');
 const redis = require('../database/redis');
-const tokenRotation = require('./tokenRotation');
-const tokenManager = require('./tokenManager');
 
 /**
  * SpotifyAuth Class
@@ -86,7 +84,7 @@ class SpotifyAuth {
       // Track refresh if userId provided (for rotation tracking)
       if (userId && data.body['refresh_token']) {
         logger.info(`Refresh token rotated for user: ${userId}`);
-        await tokenRotation.trackTokenRefresh(userId, 'rotation');
+        await this.trackTokenRefresh(userId, 'rotation');
       }
       
       return result;
@@ -175,12 +173,60 @@ class SpotifyAuth {
 
   /**
    * Save OAuth tokens to database (encrypted) with rotation support
-   * Delegates to tokenManager module
    * @param {string} userId - User ID
    * @param {Object} tokens - Token data
    */
   async saveTokens(userId, tokens) {
-    return tokenManager.saveTokens(userId, tokens);
+    try {
+      // Encrypt tokens before storage for security
+      const encryptedAccessToken = encryption.encrypt(tokens.accessToken);
+      const encryptedRefreshToken = encryption.encrypt(tokens.refreshToken);
+      // Calculate token expiration time
+      const expiresAt = new Date(Date.now() + (tokens.expiresIn * 1000));
+      
+      // Check if user already has tokens stored
+      const existingTokens = await db.findOne('oauth_tokens', { user_id: userId });
+      
+      if (existingTokens) {
+        // Store previous refresh token for grace period (in case of rotation issues)
+        const previousRefreshToken = existingTokens.refresh_token;
+        
+        // Update existing token record with rotation support
+        await db.update('oauth_tokens', existingTokens.id, {
+          access_token: encryptedAccessToken,
+          refresh_token: encryptedRefreshToken,
+          expires_at: expiresAt,
+          scope: tokens.scope,
+          token_version: (existingTokens.token_version || 0) + 1,
+          last_refreshed_at: new Date(),
+          refresh_count: (existingTokens.refresh_count || 0) + 1,
+          previous_refresh_token: previousRefreshToken
+        });
+      } else {
+        // Create new token record
+        await db.insert('oauth_tokens', {
+          user_id: userId,
+          access_token: encryptedAccessToken,
+          refresh_token: encryptedRefreshToken,
+          expires_at: expiresAt,
+          scope: tokens.scope,
+          token_version: 1,
+          refresh_count: 0
+        });
+      }
+      
+      // Cache unencrypted tokens in Redis for quick access
+      // Redis data is encrypted at rest and in transit
+      await redis.cacheToken(userId, {
+        accessToken: tokens.accessToken,
+        expiresAt: expiresAt.toISOString()
+      }, tokens.expiresIn);
+      
+      logger.debug(`Saved tokens for user: ${userId}`);
+    } catch (error) {
+      logger.error('Failed to save tokens:', error);
+      throw error;
+    }
   }
 
   /**
@@ -237,24 +283,83 @@ class SpotifyAuth {
 
   /**
    * Revoke user tokens (logout)
-   * Delegates to tokenManager module
    * @param {string} userId - User ID
    */
   async revokeTokens(userId) {
-    return tokenManager.revokeTokens(userId);
+    try {
+      // Remove tokens from database
+      const tokenRecord = await db.findOne('oauth_tokens', { user_id: userId });
+      if (tokenRecord) {
+        await db.delete('oauth_tokens', tokenRecord.id);
+      }
+      
+      // Clear tokens from Redis cache
+      await redis.invalidateToken(userId);
+      
+      logger.info(`Revoked tokens for user: ${userId}`);
+    } catch (error) {
+      logger.error('Failed to revoke tokens:', error);
+      throw error;
+    }
+  }
+  
+  /**
+   * Track token refresh for audit trail
+   * @param {string} userId - User ID
+   * @param {string} reason - Reason for refresh (manual, expiry, rotation, security)
+   */
+  async trackTokenRefresh(userId, reason) {
+    try {
+      await db.insert('token_refresh_history', {
+        user_id: userId,
+        refresh_reason: reason,
+        refreshed_at: new Date()
+      });
+    } catch (error) {
+      logger.error('Failed to track token refresh:', error);
+      // Non-critical, don't throw
+    }
   }
   
   /**
    * Proactively refresh tokens that are about to expire
-   * Delegates to tokenRotation module for implementation
    * @param {number} bufferMinutes - Minutes before expiry to trigger refresh (default: 5)
    * @returns {Array} Array of refreshed user IDs
    */
   async refreshExpiringTokens(bufferMinutes = 5) {
-    return tokenRotation.refreshExpiringTokens(
-      this.getValidAccessToken.bind(this),
-      bufferMinutes
-    );
+    try {
+      const expiryThreshold = new Date(Date.now() + (bufferMinutes * 60 * 1000));
+      
+      // Find tokens expiring within buffer period
+      const expiringTokens = await db.query(
+        `SELECT * FROM oauth_tokens 
+         WHERE expires_at <= $1 
+         AND expires_at > NOW()`,
+        [expiryThreshold]
+      );
+      
+      const refreshedUsers = [];
+      
+      for (const tokenRecord of expiringTokens.rows) {
+        try {
+          logger.info(`Proactively refreshing token for user: ${tokenRecord.user_id}`);
+          
+          // Use existing refresh logic
+          await this.getValidAccessToken(tokenRecord.user_id);
+          refreshedUsers.push(tokenRecord.user_id);
+          
+          await this.trackTokenRefresh(tokenRecord.user_id, 'expiry');
+        } catch (error) {
+          logger.error(`Failed to refresh token for user ${tokenRecord.user_id}:`, error);
+        }
+      }
+      
+      logger.info(`Proactively refreshed ${refreshedUsers.length} tokens`);
+      return refreshedUsers;
+    } catch (error) {
+      logger.error('Failed to refresh expiring tokens:', error);
+      return [];
+    }
   }
 }
 
